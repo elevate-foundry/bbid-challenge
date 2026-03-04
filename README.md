@@ -55,6 +55,35 @@ The provocative part is the last row. Any LLM *could* say "I recognize your writ
 
 This is what ethical identity detection looks like: not hiding what you know, but showing it.
 
+## Probabilistic Identity, Not Absolute
+
+Sal says things like *"math doesn't wash off"* — that's a metaphor, not a literal claim. The braille string displayed on the page is a visual encoding of a SHA-256 hash derived from device and behavioral signals. It's deterministic relative to its inputs, but **if the inputs change, the identifier changes**:
+
+- New device → new fingerprint
+- Different browser → different canvas/WebGL hashes
+- VPN → different network signals
+- Altered behavior → different biometric edges
+
+A hash is **stable only relative to its inputs**. What BBID actually performs is **probabilistic identity inference**: a confidence-scored hypothesis that links sessions, not an absolute identity proof.
+
+The pipeline is:
+
+1. **Collect signals** — device characteristics, behavioral data, session metadata
+2. **Normalize** — structured feature vector
+3. **Hash** — SHA-256 digest
+4. **Encode** — represent the bits as 8-dot braille (BBES)
+5. **Graph** — store as nodes and relationships in Neo4j with a confidence score
+
+The graph updates as new evidence arrives. Each visit either reinforces or challenges the identity hypothesis.
+
+### Interactive Identity Negotiation
+
+The novel aspect isn't fingerprinting — fraud detection systems already do that. The unusual part is making the inference **visible to the user**. Instead of silently linking sessions, BBID displays the identifier, shows the signals, exposes the confidence score, and narrates the inference through Sal.
+
+This creates a tension: once identity inference is transparent, users can **challenge or perturb it** — intentionally alter signals, use multiple devices, generate adversarial behavior patterns. A transparent identity system naturally evolves into an **interactive identity negotiation** rather than a static fingerprint.
+
+That tension — between determinism and probabilistic identity — is the most technically interesting aspect of what BBID explores.
+
 ## The Challenge
 
 Visit the page. Then try to fool it:
