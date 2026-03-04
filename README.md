@@ -35,9 +35,9 @@ Sal is a scripted AI persona embedded in the page. She speaks after every finger
 
 ## Why This Matters
 
-Every AI chatbot — ChatGPT, Grok, Claude, Gemini — is already fingerprinting users implicitly. Conversation patterns, typing cadence, vocabulary, topic preferences, and session metadata all feed into embeddings and user profiles that silently identify returning visitors. The difference is that none of them tell you.
+Most digital systems infer identity silently through cookies, accounts, and behavioral telemetry. BBID treats identity inference as a **first-class, auditable process**. Every signal used to estimate identity is visible, explainable, and inspectable by the user.
 
-BBID makes the invisible visible:
+Every AI chatbot — ChatGPT, Grok, Claude, Gemini — is already fingerprinting users implicitly. Conversation patterns, typing cadence, vocabulary, topic preferences, and session metadata all feed into embeddings and user profiles that silently identify returning visitors. The difference is that none of them tell you. BBID does:
 
 | Signal | LLM Chatbots (implicit) | BBID + Sal (explicit) |
 |--------|------------------------|-----------------------|
