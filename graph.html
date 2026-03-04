@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBID — Identity Field</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#050810; overflow:hidden; font-family:'Courier New',monospace; }
+  #canvas-wrap { width:100vw; height:100vh; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+
+  /* Loading overlay */
+  #loading { position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:100;
+    background:#050810; transition:opacity 0.8s; }
+  #loading.hidden { opacity:0; pointer-events:none; }
+  #loading h1 { color:#00ffe7; font-size:18px; letter-spacing:6px; margin-bottom:12px; }
+  #loading p { color:rgba(0,255,231,0.5); font-size:11px; letter-spacing:3px; }
+  .pulse-ring { width:60px; height:60px; border:2px solid rgba(0,255,231,0.4);
+    border-radius:50%; margin-bottom:24px;
+    animation: pulse-expand 1.5s ease-out infinite; }
+  @keyframes pulse-expand {
+    0% { transform:scale(0.5); opacity:1; }
+    100% { transform:scale(2.5); opacity:0; }
+  }
+
+  /* Legend */
+  #legend { position:absolute; bottom:20px; left:20px; z-index:10;
+    display:flex; gap:16px; flex-wrap:wrap; }
+  .legend-item { display:flex; align-items:center; gap:6px;
+    color:rgba(255,255,255,0.6); font-size:10px; letter-spacing:1.5px; }
+  .legend-dot { width:10px; height:10px; border-radius:50%; }
+
+  /* Tooltip */
+  #tooltip { position:absolute; top:0; left:0; pointer-events:none;
+    background:rgba(5,8,16,0.94); border:1px solid #00ffe7; border-radius:4px;
+    padding:12px 16px; color:#00ffe7; font-size:11px; line-height:1.7;
+    box-shadow:0 0 24px rgba(0,255,231,0.18); display:none;
+    max-width:320px; z-index:50; }
+  #tooltip .tt-label { font-size:9px; letter-spacing:2px; opacity:0.5; margin-bottom:2px; }
+  #tooltip .tt-id { font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:6px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #tooltip .tt-row { display:flex; justify-content:space-between; gap:12px; }
+  #tooltip .tt-key { opacity:0.6; }
+  #tooltip .tt-val { text-align:right; }
+
+  /* Back link */
+  #back-link { position:absolute; top:16px; right:20px; z-index:10;
+    color:rgba(0,255,231,0.5); font-size:10px; letter-spacing:2px;
+    text-decoration:none; border:1px solid rgba(0,255,231,0.2);
+    padding:6px 14px; border-radius:3px; transition:all 0.2s; }
+  #back-link:hover { color:#00ffe7; border-color:#00ffe7;
+    box-shadow:0 0 12px rgba(0,255,231,0.2); }
+
+  /* Stats */
+  #stats { position:absolute; top:16px; left:20px; z-index:10;
+    color:rgba(0,255,231,0.7); font-size:10px; letter-spacing:2px; line-height:2; }
+</style>
+</head>
+<body>
+<div id="canvas-wrap">
+  <div id="loading">
+    <div class="pulse-ring"></div>
+    <h1>IDENTITY FIELD</h1>
+    <p>LOADING GRAPH FROM AURADB...</p>
+  </div>
+
+  <svg id="field" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <filter id="glow-cyan" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b1"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b2"/>
+        <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glow-magenta" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b1"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b2"/>
+        <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glow-gold" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b1"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b2"/>
+        <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glow-green" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b1"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b2"/>
+        <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glow-soft" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="blur-edge" x="-10%" y="-10%" width="120%" height="120%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="1.2"/>
+      </filter>
+      <radialGradient id="grad-gravity" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#00ffe7" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#00ffe7" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="grad-vignette" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0a0f1e" stop-opacity="0.6"/>
+        <stop offset="50%" stop-color="#050810" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#0a0f1e" stop-opacity="0.6"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Background -->
+    <rect width="1200" height="800" fill="#050810"/>
+    <rect width="1200" height="800" fill="url(#grad-vignette)"/>
+    <g id="bg-grid" opacity="0.03" stroke="#00ffe7" stroke-width="0.5"></g>
+
+    <!-- Field lines -->
+    <g id="field-lines" opacity="1"></g>
+    <!-- Edges -->
+    <g id="edges-layer"></g>
+    <!-- Gravity halos -->
+    <g id="halos-layer" opacity="0"></g>
+    <!-- Nodes -->
+    <g id="nodes-layer"></g>
+
+    <!-- Title -->
+    <text x="24" y="38" fill="#00ffe7" font-size="18" font-weight="bold"
+      letter-spacing="4" opacity="0.9" filter="url(#glow-soft)"
+      font-family="'Courier New',monospace">BBID IDENTITY FIELD</text>
+    <text x="24" y="56" fill="#00ffe7" font-size="9" letter-spacing="2" opacity="0.45"
+      font-family="'Courier New',monospace">CROSS-DEVICE · BEHAVIORAL · LIVE AURADB</text>
+  </svg>
+
+  <div id="stats"></div>
+  <a id="back-link" href="index.html">&larr; BACK TO BBID</a>
+
+  <div id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#00ffe7"></div>VISITOR</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#cc44ff"></div>DEVICE</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ffcc00"></div>FINGERPRINT</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#44ff88"></div>SESSION</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff6644"></div>BEHAVIOR</div>
+  </div>
+
+  <div id="tooltip">
+    <div class="tt-label"></div>
+    <div class="tt-id"></div>
+    <div id="tt-props"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const WORKER_URL = 'https://bbid-ingest.ryan-45a.workers.dev';
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const W = 1200, H = 800, CX = W/2, CY = H/2;
+
+  // Physics constants
+  const G_CONST = 0.15, K_REPULSE = 3000, K_SPRING = 0.014;
+  const DAMPING = 0.76, DT = 0.85, SOFTENING = 500, REST_LEN_BASE = 140;
+
+  // Node type visual config
+  const TYPE_CONFIG = {
+    Visitor:     { color:'cyan',    radius:28, mass:30, glow:'glow-cyan',    shape:'hex' },
+    Device:      { color:'magenta', radius:22, mass:22, glow:'glow-magenta', shape:'diamond' },
+    Fingerprint: { color:'gold',    radius:18, mass:16, glow:'glow-gold',    shape:'circle' },
+    Session:     { color:'green',   radius:12, mass:8,  glow:'glow-green',   shape:'circle' },
+    Behavior:    { color:'red',     radius:9,  mass:5,  glow:'glow-soft',    shape:'tri' }
+  };
+
+  function colorVal(c, a) {
+    const map = {
+      cyan:    `rgba(0,255,231,${a})`,
+      magenta: `rgba(204,68,255,${a})`,
+      gold:    `rgba(255,204,0,${a})`,
+      green:   `rgba(68,255,136,${a})`,
+      red:     `rgba(255,102,68,${a})`
+    };
+    return map[c] || `rgba(255,255,255,${a})`;
+  }
+
+  // State
+  let nodes = [], edges = [], fieldLinePaths = [];
+  let dragging = null, dragOffX = 0, dragOffY = 0;
+  let renderTick = 0, simPhase = 'explode', simTick = 0;
+
+  // DOM
+  const svg = document.getElementById('field');
+  const nodesG = document.getElementById('nodes-layer');
+  const edgesG = document.getElementById('edges-layer');
+  const halosG = document.getElementById('halos-layer');
+  const fieldLinesG = document.getElementById('field-lines');
+  const tooltip = document.getElementById('tooltip');
+  const loading = document.getElementById('loading');
+  const statsEl = document.getElementById('stats');
+
+  // ── FETCH DATA ────────────────────────────────────────────
+  async function fetchGraph() {
+    const res = await fetch(WORKER_URL + '/graph');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  // ── BUILD PHYSICS NODES FROM GRAPH DATA ───────────────────
+  function buildFromData(data) {
+    const nodeMap = new Map(); // id -> index
+
+    // Deduplicate and create physics nodes
+    // Group sessions under their parent to reduce clutter
+    const rawNodes = data.nodes;
+    const rawRels = data.relationships;
+
+    // Build nodes
+    rawNodes.forEach((n, i) => {
+      if (nodeMap.has(n.id)) return;
+      const cfg = TYPE_CONFIG[n.label] || TYPE_CONFIG.Session;
+      const idx = nodes.length;
+      nodeMap.set(n.id, idx);
+
+      // Scale radius/mass by how many connections this node has
+      const connCount = rawRels.filter(r => r.from === n.id || r.to === n.id).length;
+      const scaleFactor = 1 + Math.min(connCount, 8) * 0.08;
+
+      nodes.push({
+        idx, id: n.id, label: n.label, properties: n.properties,
+        x: CX + (Math.random()-0.5)*20,
+        y: CY + (Math.random()-0.5)*20,
+        vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+        radius: cfg.radius * scaleFactor,
+        mass: cfg.mass * scaleFactor,
+        color: cfg.color, glow: cfg.glow, shape: cfg.shape,
+        connections: []
+      });
+    });
+
+    // Build edges
+    rawRels.forEach(r => {
+      const fromIdx = nodeMap.get(r.from);
+      const toIdx = nodeMap.get(r.to);
+      if (fromIdx === undefined || toIdx === undefined) return;
+      // Avoid duplicate edges
+      const key = Math.min(fromIdx,toIdx)+'-'+Math.max(fromIdx,toIdx)+'-'+r.type;
+      if (edges.find(e => e.key === key)) return;
+
+      const weight = r.type === 'HAS_DEVICE' ? 0.9
+        : r.type === 'HAS_FINGERPRINT' ? 0.8
+        : r.type === 'SESSION' ? 0.6
+        : r.type === 'FROM_DEVICE' ? 0.5
+        : r.type === 'HAS_BEHAVIOR' ? 0.3 : 0.4;
+
+      edges.push({ from: fromIdx, to: toIdx, type: r.type, weight, key });
+      nodes[fromIdx].connections.push(toIdx);
+      nodes[toIdx].connections.push(fromIdx);
+    });
+
+    // Compute initial target positions using clustered spiral
+    // Group by visitor — each visitor cluster gets its own region
+    const visitors = nodes.filter(n => n.label === 'Visitor');
+    const clusterAngle = (2 * Math.PI) / Math.max(visitors.length, 1);
+
+    visitors.forEach((v, vi) => {
+      const baseAngle = vi * clusterAngle - Math.PI/2;
+      const clusterCX = CX + (visitors.length > 1 ? 200 : 0) * Math.cos(baseAngle);
+      const clusterCY = CY + (visitors.length > 1 ? 150 : 0) * Math.sin(baseAngle);
+      v.targetX = clusterCX;
+      v.targetY = clusterCY;
+
+      // Fan connected nodes around the visitor
+      const connected = getCluster(v.idx);
+      const golden = 2.399963;
+      connected.forEach((ci, j) => {
+        const n = nodes[ci];
+        if (n.targetX) return; // Already placed
+        const r = 60 + j * 22;
+        const a = baseAngle + (j+1) * golden * 0.4;
+        n.targetX = clusterCX + r * Math.cos(a);
+        n.targetY = clusterCY + r * Math.sin(a) * 0.8;
+      });
+    });
+
+    // Any orphans
+    nodes.forEach(n => {
+      if (!n.targetX) {
+        n.targetX = CX + (Math.random()-0.5)*400;
+        n.targetY = CY + (Math.random()-0.5)*300;
+      }
+    });
+  }
+
+  // BFS to find all nodes connected to a visitor
+  function getCluster(visitorIdx) {
+    const visited = new Set([visitorIdx]);
+    const queue = [visitorIdx];
+    const result = [];
+    while (queue.length) {
+      const cur = queue.shift();
+      const conns = nodes[cur].connections;
+      for (const c of conns) {
+        if (!visited.has(c)) {
+          visited.add(c);
+          result.push(c);
+          queue.push(c);
+        }
+      }
+    }
+    return result;
+  }
+
+  // ── BUILD SVG ELEMENTS ────────────────────────────────────
+  function buildSVG() {
+    // Grid
+    const gridG = document.getElementById('bg-grid');
+    for (let x = 100; x < W; x += 100) {
+      gridG.appendChild(makeSVG('line', {x1:x,y1:0,x2:x,y2:H,stroke:'#00ffe7','stroke-width':'0.5'}));
+    }
+    for (let y = 100; y < H; y += 100) {
+      gridG.appendChild(makeSVG('line', {x1:0,y1:y,x2:W,y2:y,stroke:'#00ffe7','stroke-width':'0.5'}));
+    }
+
+    // Edges
+    edges.forEach((e, i) => {
+      const path = makeSVG('path', {
+        id:'edge-'+i, fill:'none',
+        stroke: edgeColor(e), 'stroke-width': 0.5 + e.weight * 2.5,
+        opacity: 0.2 + e.weight * 0.3, filter:'url(#blur-edge)'
+      });
+      edgesG.appendChild(path);
+
+      // Pulse overlay
+      const pulse = makeSVG('path', {
+        id:'epulse-'+i, fill:'none',
+        stroke: edgeColor(e), 'stroke-width': 0.3 + e.weight * 1.5,
+        opacity:0, 'stroke-dasharray':'4 18'
+      });
+      edgesG.appendChild(pulse);
+
+      // Edge type label at midpoint
+      const label = makeSVG('text', {
+        id:'elabel-'+i, 'text-anchor':'middle', fill:'rgba(255,255,255,0.2)',
+        'font-size':'7', 'letter-spacing':'1', 'pointer-events':'none',
+        'font-family':"'Courier New',monospace"
+      });
+      label.textContent = e.type;
+      edgesG.appendChild(label);
+    });
+
+    // Halos
+    nodes.forEach((n, i) => {
+      const halo = makeSVG('circle', {
+        id:'halo-'+i, cx:n.x, cy:n.y, r:n.mass*6,
+        fill:'url(#grad-gravity)', opacity:0, 'pointer-events':'none'
+      });
+      halosG.appendChild(halo);
+    });
+
+    // Nodes
+    nodes.forEach((n, i) => {
+      const g = makeSVG('g', {
+        id:'ng-'+i, transform:`translate(${n.x},${n.y})`, cursor:'grab'
+      });
+
+      // Glow ring
+      const ring = makeSVG('circle', {
+        r: n.radius + 6, fill:'none',
+        stroke: colorVal(n.color, 0.25), 'stroke-width':'1.5',
+        filter: `url(#${n.glow})`, id:'ring-'+i
+      });
+
+      // Main shape
+      const mainShape = makeSVG('circle', {
+        r: n.radius, fill: colorVal(n.color, 0.15),
+        stroke: colorVal(n.color, 0.9), 'stroke-width':'1.5',
+        filter: `url(#${n.glow})`, id:'nshape-'+i
+      });
+
+      // Inner icon/text based on type
+      const icon = makeSVG('text', {
+        x:0, y:4, 'text-anchor':'middle', fill: colorVal(n.color, 0.9),
+        'font-size': Math.max(8, n.radius * 0.55), 'pointer-events':'none',
+        'font-family':"'Courier New',monospace", 'font-weight':'bold'
+      });
+      icon.textContent = typeIcon(n.label);
+
+      // Label
+      const shortId = shortLabel(n);
+      const label = makeSVG('text', {
+        x:0, y: n.radius + 14, 'text-anchor':'middle',
+        fill: colorVal(n.color, 0.7),
+        'font-size': Math.max(7, 6 + n.mass * 0.08),
+        'letter-spacing':'1.5', 'pointer-events':'none',
+        filter:'url(#glow-soft)',
+        'font-family':"'Courier New',monospace"
+      });
+      label.textContent = shortId;
+
+      // Orbit ring
+      const orbit = makeSVG('circle', {
+        r: n.radius + 14 + n.mass * 0.5, fill:'none',
+        stroke: colorVal(n.color, 0.06), 'stroke-width':'1',
+        'stroke-dasharray':'3 6'
+      });
+
+      g.appendChild(orbit);
+      g.appendChild(ring);
+      g.appendChild(mainShape);
+      g.appendChild(icon);
+      g.appendChild(label);
+
+      g.addEventListener('mouseenter', () => onNodeHover(i, true));
+      g.addEventListener('mouseleave', () => onNodeHover(i, false));
+      g.addEventListener('mousedown', (ev) => onDragStart(ev, i));
+
+      nodesG.appendChild(g);
+    });
+
+    // Field lines
+    const numLines = 24;
+    for (let k = 0; k < numLines; k++) {
+      const p = makeSVG('path', {
+        fill:'none', stroke:'#00ffe7', 'stroke-width':'0.5',
+        opacity:'0.08', 'pointer-events':'none'
+      });
+      fieldLinesG.appendChild(p);
+      fieldLinePaths.push(p);
+    }
+  }
+
+  function typeIcon(label) {
+    return { Visitor:'V', Device:'D', Fingerprint:'F', Session:'S', Behavior:'B' }[label] || '?';
+  }
+
+  function shortLabel(n) {
+    if (n.label === 'Visitor') return n.id.replace('visitor_','').slice(0,8).toUpperCase();
+    if (n.label === 'Device') {
+      const p = n.properties;
+      return [p.type, p.os, p.browser].filter(Boolean).join(' · ').toUpperCase() || n.id.slice(0,10);
+    }
+    if (n.label === 'Fingerprint') return 'FP ' + (n.properties.sha256 || n.id).slice(0,8) + '...';
+    if (n.label === 'Session') return 'SESS ' + n.id.replace('sess_','').slice(0,6);
+    if (n.label === 'Behavior') return 'BEH';
+    return n.id.slice(0,10);
+  }
+
+  function edgeColor(e) {
+    if (e.type === 'HAS_DEVICE') return colorVal('cyan', 0.6);
+    if (e.type === 'HAS_FINGERPRINT') return colorVal('gold', 0.6);
+    if (e.type === 'SESSION') return colorVal('green', 0.5);
+    if (e.type === 'FROM_DEVICE') return colorVal('magenta', 0.4);
+    if (e.type === 'HAS_BEHAVIOR') return 'rgba(255,102,68,0.3)';
+    return 'rgba(120,200,255,0.4)';
+  }
+
+  // ── PHYSICS ───────────────────────────────────────────────
+  function physicsStep() {
+    const N = nodes.length;
+    if (N === 0) return;
+    const forces = nodes.map(() => ({fx:0,fy:0}));
+
+    for (let i = 0; i < N; i++) {
+      for (let j = i+1; j < N; j++) {
+        const dx = nodes[j].x - nodes[i].x;
+        const dy = nodes[j].y - nodes[i].y;
+        const d2 = dx*dx + dy*dy + SOFTENING;
+        const d = Math.sqrt(d2);
+
+        const fg = G_CONST * nodes[i].mass * nodes[j].mass / d2;
+        const fr = K_REPULSE / d2;
+        const fnet = fg - fr;
+        const ux = dx/d, uy = dy/d;
+        forces[i].fx += fnet * ux;
+        forces[i].fy += fnet * uy;
+        forces[j].fx -= fnet * ux;
+        forces[j].fy -= fnet * uy;
+      }
+    }
+
+    // Spring forces from edges
+    edges.forEach(e => {
+      const a = nodes[e.from], b = nodes[e.to];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.sqrt(dx*dx + dy*dy) + 1e-6;
+      const restLen = REST_LEN_BASE / (e.weight + 0.2);
+      const stretch = d - restLen;
+      const fs = K_SPRING * stretch * e.weight;
+      forces[e.from].fx += fs * dx/d;
+      forces[e.from].fy += fs * dy/d;
+      forces[e.to].fx -= fs * dx/d;
+      forces[e.to].fy -= fs * dy/d;
+    });
+
+    // Target attractor during explode phase
+    if (simPhase === 'explode') {
+      nodes.forEach((n, i) => {
+        forces[i].fx += (n.targetX - n.x) * 0.05;
+        forces[i].fy += (n.targetY - n.y) * 0.05;
+      });
+    }
+
+    // Boundary walls
+    const margin = 50;
+    nodes.forEach((n, i) => {
+      if (n.x < margin)   forces[i].fx += (margin - n.x) * 0.3;
+      if (n.x > W-margin) forces[i].fx -= (n.x - (W-margin)) * 0.3;
+      if (n.y < margin)   forces[i].fy += (margin - n.y) * 0.3;
+      if (n.y > H-margin) forces[i].fy -= (n.y - (H-margin)) * 0.3;
+    });
+
+    // Integrate
+    nodes.forEach((n, i) => {
+      if (dragging === i) return;
+      n.vx = (n.vx + forces[i].fx * DT) * DAMPING;
+      n.vy = (n.vy + forces[i].fy * DT) * DAMPING;
+      n.x += n.vx;
+      n.y += n.vy;
+    });
+  }
+
+  // ── CURVATURE FIELD ───────────────────────────────────────
+  function curvature(x, y) {
+    let k = 0;
+    for (const n of nodes) {
+      const dx = x - n.x, dy = y - n.y;
+      k += n.mass / (dx*dx + dy*dy + SOFTENING);
+    }
+    return k;
+  }
+
+  function updateFieldLines() {
+    const numLines = fieldLinePaths.length;
+    const steps = 60, stepSize = 7;
+    for (let k = 0; k < numLines; k++) {
+      const angle = (k / numLines) * Math.PI * 2;
+      const seedR = 360;
+      let x = CX + seedR * Math.cos(angle);
+      let y = CY + seedR * Math.sin(angle) * 0.8;
+      let pts = [[x, y]];
+
+      for (let s = 0; s < steps; s++) {
+        const dx = 2, dy = 2;
+        const k0 = curvature(x, y);
+        const kx = (curvature(x+dx, y) - k0) / dx;
+        const ky = (curvature(x, y+dy) - k0) / dy;
+        const len = Math.sqrt(kx*kx + ky*ky) + 1e-6;
+        x += (-ky / len) * stepSize;
+        y += (kx / len) * stepSize;
+        if (x < -50 || x > W+50 || y < -50 || y > H+50) break;
+        pts.push([x, y]);
+      }
+
+      fieldLinePaths[k].setAttribute('d', pointsToBezier(pts));
+    }
+  }
+
+  // ── RENDER ────────────────────────────────────────────────
+  function render() {
+    renderTick++;
+
+    nodes.forEach((n, i) => {
+      const g = document.getElementById('ng-'+i);
+      if (g) g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
+      const halo = document.getElementById('halo-'+i);
+      if (halo) { halo.setAttribute('cx', n.x.toFixed(1)); halo.setAttribute('cy', n.y.toFixed(1)); }
+    });
+
+    edges.forEach((e, i) => {
+      const a = nodes[e.from], b = nodes[e.to];
+      const d = elasticEdge(a, b, e.weight);
+      const ep = document.getElementById('edge-'+i);
+      if (ep) ep.setAttribute('d', d);
+      const pulse = document.getElementById('epulse-'+i);
+      if (pulse) {
+        pulse.setAttribute('d', d);
+        pulse.setAttribute('opacity', (0.12 + 0.2 * Math.sin(renderTick * 0.03 + i * 0.7)).toFixed(3));
+        pulse.setAttribute('stroke-dashoffset', ((renderTick * 0.4) % 22).toFixed(1));
+      }
+      // Edge label at midpoint
+      const label = document.getElementById('elabel-'+i);
+      if (label) {
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        label.setAttribute('x', mx.toFixed(1));
+        label.setAttribute('y', (my - 4).toFixed(1));
+      }
+    });
+
+    if (renderTick % 5 === 0) updateFieldLines();
+
+    simTick++;
+    if (simPhase === 'explode' && simTick > 180) simPhase = 'settle';
+    if (simPhase === 'settle' && simTick > 400) simPhase = 'idle';
+  }
+
+  function loop() {
+    physicsStep();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // ── INTERACTIONS ──────────────────────────────────────────
+  function onNodeHover(i, entering) {
+    halosG.setAttribute('opacity', entering ? '1' : '0');
+    const halo = document.getElementById('halo-'+i);
+    if (halo) halo.setAttribute('opacity', entering ? '0.8' : '0');
+    const ring = document.getElementById('ring-'+i);
+    if (ring) ring.setAttribute('opacity', entering ? '1' : '0.5');
+
+    if (entering) showTooltip(i);
+    else tooltip.style.display = 'none';
+  }
+
+  function showTooltip(i) {
+    const n = nodes[i];
+    tooltip.querySelector('.tt-label').textContent = n.label.toUpperCase();
+    tooltip.querySelector('.tt-id').textContent = n.id;
+    tooltip.style.color = colorVal(n.color, 1);
+    tooltip.querySelector('.tt-label').style.color = colorVal(n.color, 0.5);
+    tooltip.style.borderColor = colorVal(n.color, 0.7);
+
+    const propsDiv = document.getElementById('tt-props');
+    propsDiv.innerHTML = '';
+    const skip = new Set(['id']);
+    for (const [k, v] of Object.entries(n.properties || {})) {
+      if (skip.has(k)) continue;
+      const val = typeof v === 'string' && v.length > 30 ? v.slice(0,28)+'...' : v;
+      const row = document.createElement('div');
+      row.className = 'tt-row';
+      row.innerHTML = `<span class="tt-key">${k}</span><span class="tt-val">${val}</span>`;
+      propsDiv.appendChild(row);
+    }
+
+    // Position
+    const rect = svg.getBoundingClientRect();
+    const sx = rect.width / W, sy = rect.height / H;
+    const tx = rect.left + n.x * sx + 20;
+    const ty = rect.top + n.y * sy - 40;
+    tooltip.style.left = Math.min(tx, window.innerWidth - 340) + 'px';
+    tooltip.style.top = Math.max(ty, 10) + 'px';
+    tooltip.style.display = 'block';
+  }
+
+  function onDragStart(ev, i) {
+    ev.preventDefault();
+    dragging = i;
+    const pt = svgPoint(ev);
+    dragOffX = pt.x - nodes[i].x;
+    dragOffY = pt.y - nodes[i].y;
+    nodes[i].vx = 0; nodes[i].vy = 0;
+  }
+
+  svg.addEventListener('mousemove', (ev) => {
+    if (dragging === null) return;
+    const pt = svgPoint(ev);
+    nodes[dragging].x = pt.x - dragOffX;
+    nodes[dragging].y = pt.y - dragOffY;
+    nodes[dragging].vx = 0; nodes[dragging].vy = 0;
+  });
+
+  svg.addEventListener('mouseup', () => {
+    if (dragging !== null) {
+      nodes[dragging].vx = 0; nodes[dragging].vy = 0;
+      dragging = null;
+    }
+  });
+
+  svg.addEventListener('mouseleave', () => {
+    if (dragging !== null) {
+      nodes[dragging].vx = 0; nodes[dragging].vy = 0;
+      dragging = null;
+    }
+  });
+
+  // ── GEOMETRY HELPERS ──────────────────────────────────────
+  function elasticEdge(a, b, w) {
+    const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+    const k = curvature(mx, my);
+    const bend = Math.min(k * 1200, 50) * (1 - w);
+    const dx = b.x-a.x, dy = b.y-a.y;
+    const len = Math.sqrt(dx*dx+dy*dy)+1e-6;
+    const nx = -dy/len, ny = dx/len;
+    return `M ${a.x.toFixed(1)},${a.y.toFixed(1)} Q ${(mx+nx*bend).toFixed(1)},${(my+ny*bend).toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+  }
+
+  function pointsToBezier(pts) {
+    if (pts.length < 2) return '';
+    let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i][0]+pts[i+1][0])/2, my = (pts[i][1]+pts[i+1][1])/2;
+      d += ` Q ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)} ${mx.toFixed(1)},${my.toFixed(1)}`;
+    }
+    const last = pts[pts.length-1];
+    d += ` L ${last[0].toFixed(1)},${last[1].toFixed(1)}`;
+    return d;
+  }
+
+  function makeSVG(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k,v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+  }
+
+  function svgPoint(ev) {
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  // ── BOOT ──────────────────────────────────────────────────
+  async function boot() {
+    try {
+      const data = await fetchGraph();
+      buildFromData(data);
+      buildSVG();
+
+      // Stats
+      const visitors = nodes.filter(n => n.label === 'Visitor').length;
+      const devices = nodes.filter(n => n.label === 'Device').length;
+      const sessions = nodes.filter(n => n.label === 'Session').length;
+      statsEl.innerHTML = `VISITORS: ${visitors}<br>DEVICES: ${devices}<br>SESSIONS: ${sessions}<br>NODES: ${nodes.length}<br>EDGES: ${edges.length}`;
+
+      loading.classList.add('hidden');
+      loop();
+
+      // Auto-refresh every 30s
+      setInterval(async () => {
+        try {
+          const fresh = await fetchGraph();
+          const newNodeCount = fresh.nodes.length;
+          if (newNodeCount !== nodes.length) {
+            // Full rebuild (simple approach)
+            nodes = []; edges = []; fieldLinePaths = [];
+            nodesG.innerHTML = ''; edgesG.innerHTML = ''; halosG.innerHTML = ''; fieldLinesG.innerHTML = '';
+            buildFromData(fresh);
+            buildSVG();
+            simPhase = 'explode'; simTick = 0;
+            const v2 = nodes.filter(n => n.label === 'Visitor').length;
+            const d2 = nodes.filter(n => n.label === 'Device').length;
+            const s2 = nodes.filter(n => n.label === 'Session').length;
+            statsEl.innerHTML = `VISITORS: ${v2}<br>DEVICES: ${d2}<br>SESSIONS: ${s2}<br>NODES: ${nodes.length}<br>EDGES: ${edges.length}`;
+          }
+        } catch(e) { /* silent */ }
+      }, 30000);
+
+    } catch (e) {
+      loading.querySelector('p').textContent = 'ERROR: ' + e.message;
+      loading.querySelector('p').style.color = 'rgba(255,82,82,0.8)';
+    }
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

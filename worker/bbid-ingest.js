@@ -133,14 +133,53 @@ export default {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
           'Access-Control-Max-Age': '86400'
         }
       });
     }
 
-    // Only accept POST
+    const url = new URL(request.url);
+
+    // GET /graph — return full identity graph for visualization
+    if (request.method === 'GET' && url.pathname === '/graph') {
+      try {
+        const nodesResult = await runCypher(env, `
+          MATCH (n)
+          WHERE n:Visitor OR n:Device OR n:Fingerprint OR n:Session OR n:Behavior
+          RETURN labels(n)[0] AS label, n.id AS id, properties(n) AS props
+          ORDER BY labels(n)[0], n.id
+        `);
+
+        const relsResult = await runCypher(env, `
+          MATCH (a)-[r]->(b)
+          WHERE (a:Visitor OR a:Device OR a:Fingerprint OR a:Session OR a:Behavior)
+            AND (b:Visitor OR b:Device OR b:Fingerprint OR b:Session OR b:Behavior)
+          RETURN a.id AS from, type(r) AS type, b.id AS to, properties(r) AS props
+        `);
+
+        const nodes = (nodesResult.data?.values || []).map(row => ({
+          label: row[0], id: row[1], properties: row[2]
+        }));
+
+        const relationships = (relsResult.data?.values || []).map(row => ({
+          from: row[0], type: row[1], to: row[2], properties: row[3]
+        }));
+
+        return new Response(JSON.stringify({ nodes, relationships }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
+    // Only accept POST for ingest
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
