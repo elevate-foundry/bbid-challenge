@@ -179,6 +179,25 @@ export default {
       }
     }
 
+    // GET /name — retrieve any stored display name from the graph (cross-device sync)
+    if (request.method === 'GET' && url.pathname === '/name') {
+      try {
+        const result = await runCypher(env,
+          'MATCH (v:Visitor) WHERE v.displayName IS NOT NULL RETURN v.displayName LIMIT 1'
+        );
+        const name = (result.data?.values || [])[0]?.[0] || '';
+        return new Response(JSON.stringify({ name }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ name: '', error: error.message }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
     // POST /name — set display name on a Visitor node (cross-device sync)
     if (request.method === 'POST' && url.pathname === '/name') {
       try {

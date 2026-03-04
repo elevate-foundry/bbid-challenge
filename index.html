@@ -1702,16 +1702,12 @@
         // Try to pull name from Neo4j graph (cross-device sync)
         async _fetchGraphName() {
             try {
-                const res = await fetch(this.workerUrl + '/graph');
+                const res = await fetch(this.workerUrl + '/name');
                 const data = await res.json();
-                if (data.nodes) {
-                    for (const n of data.nodes) {
-                        if (n.label === 'Visitor' && n.properties && n.properties.displayName) {
-                            return n.properties.displayName;
-                        }
-                    }
-                }
-            } catch {}
+                if (data.name) return data.name;
+            } catch (e) {
+                console.warn('Sal: cross-device name lookup failed:', e.message);
+            }
             return '';
         }
 
