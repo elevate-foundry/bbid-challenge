@@ -747,6 +747,15 @@ export default {
       const statements = buildCypherStatements(payload);
       const results = await runCypherBatch(env, statements);
 
+      // GDPR Article 5(1)(e): Storage limitation — prune data older than 90 days
+      // Non-blocking cleanup: delete expired sessions and orphaned behaviors
+      runCypher(env, `
+        MATCH (s:Session)
+        WHERE s.started < datetime() - duration('P90D')
+        OPTIONAL MATCH (s)-[:HAS_BEHAVIOR]->(b:Behavior)
+        DETACH DELETE s, b
+      `).catch(() => {}); // best-effort, don't block ingestion
+
       return new Response(JSON.stringify({ 
         status: 'ok', 
         message: 'Graph updated',

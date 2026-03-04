@@ -917,7 +917,8 @@
                 <p>
                     <strong>Purpose:</strong> Research demonstration of transparent identity inference using braille-encoded biometrics.<br>
                     <strong>Legal basis:</strong> Explicit consent (GDPR Article 6(1)(a)).<br>
-                    <strong>Retention:</strong> Data is retained until you delete it. There is no automatic expiration.<br>
+                    <strong>Retention:</strong> Session and behavioral data expires automatically after 90 days. Core identity nodes persist until you delete them.<br>
+                    <strong>Right to access:</strong> Click "Export Graph JSON" to download everything we hold about you — local and server-side (GDPR Article 15).<br>
                     <strong>Right to erasure:</strong> Click "Reset My BBID" to delete all your data from our servers (GDPR Article 17).<br>
                     <strong>Right to withdraw:</strong> You can withdraw consent at any time via the footer link. This stops all collection and deletes stored data.<br>
                     <strong>Data controller:</strong> Elevate Foundry (research project).<br>
@@ -1573,12 +1574,18 @@
         calculateConfidence(currentHash) {
             const identity = this.getIdentity();
             if (!identity || !identity.fingerprints || identity.fingerprints.length === 0) return 0;
+            const visits = identity.visits || 1;
             if (identity.fingerprints.includes(currentHash)) {
-                // Exact match — base 85%, up to 98% with more visits
-                return Math.min(0.98, 0.85 + (identity.visits || 1) * 0.01);
+                // First visit: low confidence (we just met)
+                // Confidence grows with repeat visits — trust is earned
+                if (visits <= 1) return 0.15;
+                if (visits === 2) return 0.40;
+                if (visits === 3) return 0.58;
+                // 4+: asymptotic approach to 0.98
+                return Math.min(0.98, 0.55 + Math.log2(visits) * 0.08);
             }
             // Unknown fingerprint but same visitorId in storage
-            return 0.3;
+            return 0.10;
         }
 
         reset() {
@@ -2307,13 +2314,26 @@
     // GDPR Consent Gate
     // ═══════════════════════════════════════════════════════════════════════
     const CONSENT_KEY = 'bbid_consent';
+    const CONSENT_VERSION = '1.0';
 
     function hasConsent() {
-        try { return localStorage.getItem(CONSENT_KEY) === 'granted'; } catch { return false; }
+        try {
+            const raw = localStorage.getItem(CONSENT_KEY);
+            if (raw === 'granted') return true; // legacy compat
+            if (!raw) return false;
+            const record = JSON.parse(raw);
+            return record.status === 'granted' && record.version === CONSENT_VERSION;
+        } catch { return false; }
     }
 
     function grantConsent() {
-        localStorage.setItem(CONSENT_KEY, 'granted');
+        const record = {
+            status: 'granted',
+            timestamp: new Date().toISOString(),
+            version: CONSENT_VERSION,
+            userAgent: navigator.userAgent
+        };
+        localStorage.setItem(CONSENT_KEY, JSON.stringify(record));
         document.getElementById('consent-overlay').classList.add('hidden');
         bbidMain();
     }
@@ -2565,20 +2585,39 @@
             }
         });
 
-        document.getElementById('btn-export').addEventListener('click', () => {
+        document.getElementById('btn-export').addEventListener('click', async () => {
+            // GDPR Article 15: Right to Access — include server-held data
+            let serverData = null;
+            try {
+                const res = await fetch(WORKER_URL + '/identity?fp=' + encodeURIComponent('fp_' + fp.rawHash));
+                if (res.ok) serverData = await res.json();
+            } catch {}
+
+            const consentRaw = localStorage.getItem(CONSENT_KEY);
+            let consentRecord;
+            try { consentRecord = JSON.parse(consentRaw); } catch { consentRecord = { status: consentRaw }; }
+
             const fullPayload = {
-                ...graphPayload,
-                behavior: behavior.toGraphNode(sessionId),
-                meta: {
-                    exported: new Date().toISOString(),
-                    version: '1.0.0',
+                _notice: 'GDPR Article 15 — Subject Access Request Export',
+                _exported: new Date().toISOString(),
+                consent: consentRecord,
+                localData: {
+                    ...graphPayload,
+                    behavior: behavior.toGraphNode(sessionId),
                     bbidBraille: fp.brailleHash.substring(0, 64)
+                },
+                serverData: serverData || { note: 'Server data unavailable — offline or not yet ingested' },
+                meta: {
+                    exportVersion: '2.0.0',
+                    retentionPolicy: '90 days from last visit',
+                    dataController: 'BBID Challenge (research demo)',
+                    deletionEndpoint: WORKER_URL + '/visitor'
                 }
             };
             const blob = new Blob([JSON.stringify(fullPayload, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `bbid_${fp.rawHash.substring(0, 8)}.json`;
+            a.download = `bbid_access_${fp.rawHash.substring(0, 8)}.json`;
             a.click();
             URL.revokeObjectURL(a.href);
         });

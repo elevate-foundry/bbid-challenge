@@ -24,7 +24,10 @@ test.describe('GDPR Consent', () => {
     await acceptAndWait(page);
     await expect(page.locator('#consent-overlay')).toHaveClass(/hidden/);
     const consent = await page.evaluate(() => localStorage.getItem('bbid_consent'));
-    expect(consent).toBe('granted');
+    const parsed = JSON.parse(consent);
+    expect(parsed.status).toBe('granted');
+    expect(parsed.version).toBe('1.0');
+    expect(parsed.timestamp).toBeTruthy();
     await expect(page.locator('#bbid-hash')).toContainText(/SHA-256: [0-9a-f]{64}/);
   });
 
