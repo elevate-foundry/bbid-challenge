@@ -1683,7 +1683,10 @@
         }
 
         setUserName(name) {
-            localStorage.setItem(this.NAME_KEY, name.trim());
+            // Normalize: trim, then Title Case the first letter
+            const clean = name.trim();
+            const normalized = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+            localStorage.setItem(this.NAME_KEY, normalized);
         }
 
         // Speak after fingerprint is ready
