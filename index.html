@@ -1690,18 +1690,20 @@
         speak(visitNum, fp, confidence) {
             const name = this.getUserName();
 
-            if (visitNum === 1 && !name) {
-                // First ever visit — introduce and ask name
-                this._typeMessage(
-                    "Hi, I'm <strong>Sal</strong>. I watch the identity graph — every device, every fingerprint, every pattern. " +
-                    "I already know your <em>" + fp.getDeviceType() + "</em> running <em>" + fp.getOS() + "</em>. " +
-                    "But I don't know what to call you yet.",
-                    () => {
-                        this.inputWrap.style.display = 'flex';
-                        this.nameInput.focus();
-                    }
-                );
-            } else if (visitNum === 1 && name) {
+            if (!name) {
+                // No name stored — introduce and ask, regardless of visit count
+                const intro = visitNum > 1
+                    ? "Hi, I'm <strong>Sal</strong>. I've seen you <em>" + visitNum + " times</em> now — " +
+                      "same <em>" + fp.getDeviceType() + "</em>, same <em>" + fp.getOS() + "</em>. " +
+                      "But I still don't know your name."
+                    : "Hi, I'm <strong>Sal</strong>. I watch the identity graph — every device, every fingerprint, every pattern. " +
+                      "I already know your <em>" + fp.getDeviceType() + "</em> running <em>" + fp.getOS() + "</em>. " +
+                      "But I don't know what to call you yet.";
+                this._typeMessage(intro, () => {
+                    this.inputWrap.style.display = 'flex';
+                    this.nameInput.focus();
+                });
+            } else if (visitNum === 1) {
                 // Name set (maybe from a reset) but first visit
                 this._typeMessage(
                     "Hey <strong>" + this._esc(name) + "</strong>, fresh start? I see you wiped your BBID. " +
