@@ -27,6 +27,10 @@ Sal is a scripted AI persona embedded in the page. She speaks after every finger
 - **Name normalization** — "ryan", "RYAN", "Ryan" all become "Ryan"
 - **Visit 9+** — Messages rotate through deep fingerprint insights: hardware heartbeats, math signatures, braille compression patterns
 
+**Generative AI without an LLM:**
+
+Sal has no language model behind her — zero API calls to OpenAI, Anthropic, or anyone else. She's a rule-based generative system: visit-keyed message templates with dynamic interpolation of real fingerprint data, conditional branching based on visit count and name state, and progressive disclosure that escalates in technical depth over time. The output is novel on every visit because the inputs (fingerprint hash, device signals, behavioral data, confidence score) are always different. The intelligence isn't in the language generation — it's in the data awareness. She has access to everything the fingerprinting system collects, and she just tells you about it. That's enough to feel uncanny.
+
 **How it works under the hood:**
 - `SalAI` class in `index.html` with `localStorage` name persistence (`sal_user_name`) and graph sync
 - `_fetchGraphName()` calls `GET /name` on the Cloudflare Worker, which runs a single Cypher query against Neo4j
