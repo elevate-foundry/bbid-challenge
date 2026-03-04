@@ -1033,6 +1033,72 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Graph Ingestion (Cloudflare Worker → Neo4j Aura)
+    // ═══════════════════════════════════════════════════════════════════════
+    const WORKER_URL = 'https://bbid-ingest.ryan-45a.workers.dev';
+
+    class GraphIngest {
+        constructor(workerUrl) {
+            this.url = workerUrl;
+            this.synced = false;
+            this.error = null;
+        }
+
+        async sendInitial(graphPayload, behaviorNode) {
+            try {
+                const payload = {
+                    ...graphPayload,
+                    behavior: behaviorNode,
+                    meta: {
+                        sent: new Date().toISOString(),
+                        version: '1.0.0',
+                        type: 'initial'
+                    }
+                };
+                const res = await fetch(this.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                this.synced = data.status === 'ok';
+                this.error = data.status !== 'ok' ? (data.message || 'Unknown error') : null;
+                return data;
+            } catch (e) {
+                this.error = e.message;
+                this.synced = false;
+                console.warn('Graph ingest failed (initial):', e.message);
+                return null;
+            }
+        }
+
+        sendBeacon(sessionId, behaviorNode) {
+            try {
+                const payload = JSON.stringify({
+                    nodes: [behaviorNode],
+                    relationships: [{
+                        from: sessionId,
+                        to: behaviorNode.id,
+                        type: 'HAS_BEHAVIOR'
+                    }],
+                    meta: {
+                        sent: new Date().toISOString(),
+                        version: '1.0.0',
+                        type: 'beacon_update'
+                    }
+                });
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(this.url, new Blob([payload], { type: 'application/json' }));
+                } else {
+                    fetch(this.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+                }
+            } catch (e) {
+                console.warn('Graph beacon failed:', e.message);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // App Controller
     // ═══════════════════════════════════════════════════════════════════════
     (async function main() {
@@ -1121,6 +1187,34 @@
             `  <span class="node">(:Session {id: "${sessionId}"})</span>\n\n` +
             `<span style="color: var(--text-dim);">// ${graphPayload.nodes.length} nodes, ${graphPayload.relationships.length} relationships</span>\n` +
             `<span style="color: var(--text-dim);">// BBES: ${fp.brailleHash.substring(0, 32)}...</span>`;
+
+        // ── Graph Ingestion ──
+        const graph = new GraphIngest(WORKER_URL);
+
+        // Send initial fingerprint to Neo4j (non-blocking)
+        graph.sendInitial(graphPayload, behavior.toGraphNode(sessionId)).then(result => {
+            const graphBadge = document.getElementById('graph-card').querySelector('.card-badge');
+            if (result && result.status === 'ok') {
+                graphBadge.textContent = 'Synced';
+                graphBadge.className = 'card-badge badge-live';
+                console.log('✓ Graph ingested:', result.nodesCreated, 'nodes,', result.relationshipsCreated, 'rels');
+            } else {
+                graphBadge.textContent = 'Local Only';
+                graphBadge.style.background = 'rgba(255,82,82,0.15)';
+                graphBadge.style.color = 'var(--danger)';
+                console.warn('Graph ingest:', graph.error || 'no response');
+            }
+        });
+
+        // Send final behavior snapshot when leaving the page
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                graph.sendBeacon(sessionId, behavior.toGraphNode(sessionId));
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            graph.sendBeacon(sessionId, behavior.toGraphNode(sessionId));
+        });
 
         // Behavior tracker UI update loop
         setInterval(() => {

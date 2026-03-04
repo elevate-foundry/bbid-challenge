@@ -1,0 +1,10 @@
+name = "bbid-ingest"
+main = "bbid-ingest.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+NEO4J_USERNAME = "neo4j"
+NEO4J_URI = "neo4j+s://9dec0344.databases.neo4j.io"
+
+# NEO4J_PASSWORD should be set as a secret:
+#   wrangler secret put NEO4J_PASSWORD
