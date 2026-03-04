@@ -179,6 +179,32 @@ export default {
       }
     }
 
+    // POST /name — set display name on a Visitor node (cross-device sync)
+    if (request.method === 'POST' && url.pathname === '/name') {
+      try {
+        const { visitorId, name } = await request.json();
+        if (!visitorId || !name) {
+          return new Response(JSON.stringify({ error: 'Missing visitorId or name' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          });
+        }
+        await runCypher(env,
+          'MATCH (v:Visitor {id: $visitorId}) SET v.displayName = $name RETURN v.id',
+          { visitorId, name: name.trim() }
+        );
+        return new Response(JSON.stringify({ status: 'ok' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
+
     // Only accept POST for ingest
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {

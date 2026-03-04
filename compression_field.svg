@@ -1,0 +1,796 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  viewBox="0 0 1200 800" width="1200" height="800"
+  style="background:#050810; font-family: 'Courier New', monospace; cursor:default;"
+  id="cf-root">
+
+  <title>The Compression Field</title>
+  <desc>This is not an image. It is a field. A semantic gravity well where concepts bend space around them — their frequency becomes mass, their entropy becomes geometry, their relations become elastic force. Interact: drag nodes, click to morph, hover to sense gravity, double-click background to reset. Built as a living mathematical object.</desc>
+
+  <defs>
+    <!-- ═══ GLOW FILTERS ═══ -->
+    <filter id="glow-cyan" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur2"/>
+      <feMerge><feMergeNode in="blur2"/><feMergeNode in="blur1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-magenta" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur2"/>
+      <feMerge><feMergeNode in="blur2"/><feMergeNode in="blur1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-gold" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2"/>
+      <feMerge><feMergeNode in="blur2"/><feMergeNode in="blur1"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="blur-bg" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.2"/>
+    </filter>
+
+    <!-- ═══ GRADIENTS ═══ -->
+    <radialGradient id="grad-node-high" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#00ffe7" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#0088cc" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#001a33" stop-opacity="0.7"/>
+    </radialGradient>
+    <radialGradient id="grad-node-mid" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#cc44ff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#660099" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1a0033" stop-opacity="0.7"/>
+    </radialGradient>
+    <radialGradient id="grad-node-low" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffcc00" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#cc6600" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1a0a00" stop-opacity="0.7"/>
+    </radialGradient>
+    <radialGradient id="grad-gravity" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ffe7" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#00ffe7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="grad-bg-vignette" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0f1e" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#050810" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0a0f1e" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="grad-center-pulse" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ffe7" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#00ffe7" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- ═══ REUSABLE SYMBOLS ═══ -->
+    <!-- Hexagon node shape (high-frequency) -->
+    <symbol id="sym-hex" viewBox="-1 -1 2 2">
+      <polygon points="0,-1 0.866,-0.5 0.866,0.5 0,1 -0.866,0.5 -0.866,-0.5" fill="inherit" stroke="inherit"/>
+    </symbol>
+    <!-- Diamond node shape (mid-frequency) -->
+    <symbol id="sym-diamond" viewBox="-1 -1 2 2">
+      <polygon points="0,-1 1,0 0,1 -1,0" fill="inherit" stroke="inherit"/>
+    </symbol>
+    <!-- Triangle node shape (low-frequency) -->
+    <symbol id="sym-tri" viewBox="-1 -1 2 2">
+      <polygon points="0,-1 0.866,0.5 -0.866,0.5" fill="inherit" stroke="inherit"/>
+    </symbol>
+  </defs>
+
+  <!-- ═══ LAYER 0: BACKGROUND MANIFOLD ═══ -->
+  <g id="manifold">
+    <rect width="1200" height="800" fill="#050810"/>
+    <!-- Vignette overlay -->
+    <rect width="1200" height="800" fill="url(#grad-bg-vignette)"/>
+    <!-- Subtle grid -->
+    <g id="bg-grid" opacity="0.04" stroke="#00ffe7" stroke-width="0.5">
+      <line x1="0" y1="100" x2="1200" y2="100"/>
+      <line x1="0" y1="200" x2="1200" y2="200"/>
+      <line x1="0" y1="300" x2="1200" y2="300"/>
+      <line x1="0" y1="400" x2="1200" y2="400"/>
+      <line x1="0" y1="500" x2="1200" y2="500"/>
+      <line x1="0" y1="600" x2="1200" y2="600"/>
+      <line x1="0" y1="700" x2="1200" y2="700"/>
+      <line x1="100" y1="0" x2="100" y2="800"/>
+      <line x1="200" y1="0" x2="200" y2="800"/>
+      <line x1="300" y1="0" x2="300" y2="800"/>
+      <line x1="400" y1="0" x2="400" y2="800"/>
+      <line x1="500" y1="0" x2="500" y2="800"/>
+      <line x1="600" y1="0" x2="600" y2="800"/>
+      <line x1="700" y1="0" x2="700" y2="800"/>
+      <line x1="800" y1="0" x2="800" y2="800"/>
+      <line x1="900" y1="0" x2="900" y2="800"/>
+      <line x1="1000" y1="0" x2="1000" y2="800"/>
+      <line x1="1100" y1="0" x2="1100" y2="800"/>
+    </g>
+    <!-- Center pulse ring -->
+    <circle id="center-pulse" cx="600" cy="400" r="0" fill="none" stroke="#00ffe7" stroke-width="1" opacity="0"/>
+  </g>
+
+  <!-- ═══ LAYER 1: FIELD LINES ═══ -->
+  <g id="field-lines" opacity="1">
+    <!-- Dynamically populated by JS -->
+  </g>
+
+  <!-- ═══ LAYER 2: ELASTIC EDGES ═══ -->
+  <g id="edges-layer" opacity="1">
+    <!-- Dynamically populated by JS -->
+  </g>
+
+  <!-- ═══ LAYER 3: GRAVITY HALOS ═══ -->
+  <g id="gravity-halos" opacity="0">
+    <!-- Shown on hover, populated by JS -->
+  </g>
+
+  <!-- ═══ LAYER 4: CONCEPT NODES ═══ -->
+  <g id="concept-nodes">
+    <!-- Dynamically populated by JS -->
+  </g>
+
+  <!-- ═══ LAYER 5: META LAYER (labels, tooltip, UI) ═══ -->
+  <g id="meta-layer">
+    <!-- Title block -->
+    <text x="24" y="38" fill="#00ffe7" font-size="18" font-weight="bold" letter-spacing="4" opacity="0.9" filter="url(#glow-soft)">THE COMPRESSION FIELD</text>
+    <text x="24" y="56" fill="#00ffe7" font-size="9" letter-spacing="2" opacity="0.45">SEMANTIC GRAVITY · CURVATURE MANIFOLD · LIVING STRUCTURE</text>
+
+    <!-- Layer toggles -->
+    <g id="layer-toggles" transform="translate(24, 740)" font-size="9" letter-spacing="1.5" fill="#00ffe7" opacity="0.5" cursor="pointer">
+      <rect x="0" y="-10" width="70" height="14" fill="none" stroke="#00ffe7" stroke-width="0.5" rx="2" id="tog-manifold" onclick="toggleLayer('manifold')" style="cursor:pointer"/>
+      <text x="5" y="0" pointer-events="none">MANIFOLD</text>
+      <rect x="80" y="-10" width="70" height="14" fill="none" stroke="#00ffe7" stroke-width="0.5" rx="2" id="tog-field" onclick="toggleLayer('field-lines')" style="cursor:pointer"/>
+      <text x="85" y="0" pointer-events="none">FIELD</text>
+      <rect x="160" y="-10" width="70" height="14" fill="none" stroke="#00ffe7" stroke-width="0.5" rx="2" id="tog-nodes" onclick="toggleLayer('concept-nodes')" style="cursor:pointer"/>
+      <text x="165" y="0" pointer-events="none">NODES</text>
+      <rect x="240" y="-10" width="70" height="14" fill="none" stroke="#00ffe7" stroke-width="0.5" rx="2" id="tog-meta" onclick="toggleLayer('meta-layer')" style="cursor:pointer"/>
+      <text x="245" y="0" pointer-events="none">META</text>
+    </g>
+
+    <!-- Instructions -->
+    <text x="1176" y="770" fill="#00ffe7" font-size="8" letter-spacing="1" opacity="0.3" text-anchor="end">DRAG · CLICK · HOVER · DBL-CLICK TO RESET</text>
+
+    <!-- Tooltip panel (foreignObject) -->
+    <foreignObject id="tooltip-panel" x="900" y="60" width="280" height="160" visibility="hidden">
+      <div xmlns="http://www.w3.org/1999/xhtml" id="tooltip-inner"
+        style="background:rgba(5,8,16,0.92);border:1px solid #00ffe7;border-radius:4px;padding:14px 16px;color:#00ffe7;font-family:'Courier New',monospace;font-size:11px;line-height:1.7;box-shadow:0 0 24px rgba(0,255,231,0.18);">
+        <div id="tt-name" style="font-size:14px;font-weight:bold;letter-spacing:2px;margin-bottom:6px;"></div>
+        <div id="tt-freq" style="color:#aaffee;"></div>
+        <div id="tt-entropy" style="color:#cc88ff;"></div>
+        <div id="tt-mass" style="color:#ffcc44;"></div>
+        <div id="tt-shape" style="color:#88ccff;margin-top:4px;font-size:9px;letter-spacing:1px;opacity:0.7;"></div>
+      </div>
+    </foreignObject>
+  </g>
+
+  <!-- ═══ INLINE JAVASCRIPT ENGINE ═══ -->
+  <script type="text/javascript"><![CDATA[
+  (function() {
+    'use strict';
+
+    /*
+     * ══════════════════════════════════════════════════════════════
+     * MATHEMATICAL FOUNDATIONS
+     * ══════════════════════════════════════════════════════════════
+     *
+     * CURVATURE APPROXIMATION:
+     *   κ(x,y) = Σᵢ [ mᵢ / (dᵢ² + ε) ]
+     *   where mᵢ = node mass (∝ frequency), dᵢ = distance to node i,
+     *   ε = 400 (softening constant to prevent singularity)
+     *   High κ bends field lines; low κ leaves them straight.
+     *
+     * FORCE EQUATION (micro-physics):
+     *   F_gravity  = G · mᵢ · mⱼ / (d² + ε)   [attraction, high-mass pairs]
+     *   F_repulse  = k_r / (d² + ε)              [universal short-range repulsion]
+     *   F_spring   = k_s · (d - L₀) · unit_vec  [edge spring, L₀ = rest length]
+     *   net F = F_gravity - F_repulse + Σ F_spring
+     *   velocity integration: v += F·dt·damping; x += v·dt
+     *
+     * ENTROPY → GEOMETRY MAPPING:
+     *   entropy ∈ [0,1] → Bézier control points = 2 + floor(entropy * 6)
+     *   Low entropy → simple ellipse (2 ctrl pts)
+     *   High entropy → complex star-burst path (8 ctrl pts)
+     *   Path interpolation uses linear lerp on control point coordinates.
+     *
+     * FIELD LINE ALGORITHM:
+     *   For each seed angle θ, integrate: dx/ds = -∂κ/∂y, dy/ds = ∂κ/∂x
+     *   (gradient-perpendicular flow, i.e., iso-curvature contours)
+     *   Steps: 80, step size: 6px. Rendered as smooth Bézier polylines.
+     * ══════════════════════════════════════════════════════════════
+     */
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const W = 1200, H = 800;
+    const CX = W / 2, CY = H / 2;
+    const G_CONST = 0.18, K_REPULSE = 2200, K_SPRING = 0.012, DAMPING = 0.78, DT = 0.9;
+    const SOFTENING = 400, REST_LEN_BASE = 180;
+
+    // ── CONCEPT DATASET ──────────────────────────────────────────
+    // frequency: 0–1 → gravitational mass, node radius
+    // entropy:   0–1 → path complexity (Bézier control points)
+    // relations: indices of connected nodes with weights
+    const CONCEPTS = [
+      { name:'MEANING',    freq:0.97, entropy:0.22, color:'cyan',    relations:[[1,0.9],[2,0.7],[4,0.5],[7,0.4]] },
+      { name:'SIGNAL',     freq:0.88, entropy:0.35, color:'cyan',    relations:[[0,0.9],[3,0.6],[5,0.5]] },
+      { name:'STRUCTURE',  freq:0.82, entropy:0.18, color:'cyan',    relations:[[0,0.7],[6,0.8],[9,0.4]] },
+      { name:'ENTROPY',    freq:0.74, entropy:0.91, color:'magenta', relations:[[1,0.6],[4,0.7],[8,0.5]] },
+      { name:'GRAVITY',    freq:0.71, entropy:0.44, color:'cyan',    relations:[[0,0.5],[3,0.7],[10,0.6]] },
+      { name:'RECURSION',  freq:0.65, entropy:0.78, color:'magenta', relations:[[1,0.5],[6,0.6],[11,0.4]] },
+      { name:'TOPOLOGY',   freq:0.60, entropy:0.55, color:'magenta', relations:[[2,0.8],[5,0.6],[9,0.5]] },
+      { name:'DENSITY',    freq:0.56, entropy:0.40, color:'gold',    relations:[[0,0.4],[8,0.6],[12,0.5]] },
+      { name:'FIELD',      freq:0.52, entropy:0.67, color:'magenta', relations:[[3,0.5],[7,0.6],[13,0.4]] },
+      { name:'LATTICE',    freq:0.47, entropy:0.50, color:'gold',    relations:[[2,0.4],[6,0.5],[14,0.3]] },
+      { name:'CURVATURE',  freq:0.43, entropy:0.62, color:'gold',    relations:[[4,0.6],[11,0.5],[13,0.4]] },
+      { name:'ATTRACTOR',  freq:0.39, entropy:0.73, color:'gold',    relations:[[5,0.4],[10,0.5],[14,0.4]] },
+      { name:'MANIFOLD',   freq:0.35, entropy:0.48, color:'gold',    relations:[[7,0.5],[13,0.3]] },
+      { name:'PROJECTION', freq:0.30, entropy:0.58, color:'gold',    relations:[[8,0.4],[10,0.4],[12,0.3]] },
+      { name:'INVARIANT',  freq:0.24, entropy:0.32, color:'gold',    relations:[[9,0.3],[11,0.4]] }
+    ];
+
+    const N = CONCEPTS.length;
+
+    // Physics state
+    let nodes = [];
+    let animFrame = null;
+    let simPhase = 'explode'; // 'explode' | 'settle' | 'idle'
+    let simTick = 0;
+    let dragging = null, dragOffX = 0, dragOffY = 0;
+    let hoveredNode = null;
+    let morphStates = new Array(N).fill(0); // 0=circle, 1=morphed
+    let fieldLinePaths = [];
+    let layerVisibility = { 'manifold':true, 'field-lines':true, 'concept-nodes':true, 'meta-layer':true };
+
+    // DOM references
+    const root = document.getElementById('cf-root');
+    const fieldLinesG = document.getElementById('field-lines');
+    const edgesG = document.getElementById('edges-layer');
+    const nodesG = document.getElementById('concept-nodes');
+    const halosG = document.getElementById('gravity-halos');
+    const tooltipPanel = document.getElementById('tooltip-panel');
+    const centerPulse = document.getElementById('center-pulse');
+
+    // ── INIT ─────────────────────────────────────────────────────
+    function init() {
+      nodes = CONCEPTS.map((c, i) => ({
+        id: i,
+        x: CX, y: CY,
+        vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+        mass: 4 + c.freq * 28,
+        radius: 7 + c.freq * 26,
+        targetX: 0, targetY: 0,
+        morphT: 0,
+        color: c.color,
+        freq: c.freq,
+        entropy: c.entropy,
+        name: c.name,
+        relations: c.relations
+      }));
+
+      // Compute stable target positions using golden angle spiral
+      const goldenAngle = 2.399963;
+      for (let i = 0; i < N; i++) {
+        const r = 80 + (i / N) * 280;
+        const angle = i * goldenAngle;
+        nodes[i].targetX = CX + r * Math.cos(angle);
+        nodes[i].targetY = CY + r * Math.sin(angle) * 0.75;
+      }
+
+      buildEdges();
+      buildNodeElements();
+      buildHalos();
+      buildFieldLines();
+      startCenterPulse();
+      loop();
+    }
+
+    // ── NODE ELEMENTS ────────────────────────────────────────────
+    function buildNodeElements() {
+      nodesG.innerHTML = '';
+      nodes.forEach((n, i) => {
+        const g = makeSVG('g', { id:'node-g-'+i, transform:'translate('+n.x+','+n.y+')', cursor:'grab' });
+
+        // Outer glow ring
+        const ring = makeSVG('circle', {
+          r: n.radius + 8, fill:'none',
+          stroke: colorVal(n.color, 0.3), 'stroke-width':'1.5',
+          filter: 'url(#glow-'+n.color+')', class:'node-ring', id:'ring-'+i
+        });
+
+        // Main node path (starts as circle, morphs on click)
+        const path = makeSVG('path', {
+          d: circlePath(n.radius),
+          fill: 'url(#grad-node-'+gradKey(n.color)+')',
+          stroke: colorVal(n.color, 0.9), 'stroke-width':'1.5',
+          filter: 'url(#glow-'+n.color+')',
+          class:'node-path', id:'npath-'+i
+        });
+
+        // Label
+        const label = makeSVG('text', {
+          x:'0', y: n.radius + 16,
+          'text-anchor':'middle', fill: colorVal(n.color, 0.85),
+          'font-size': 8 + n.freq * 4,
+          'letter-spacing':'2',
+          'pointer-events':'none',
+          filter:'url(#glow-soft)'
+        });
+        label.textContent = n.name;
+
+        // Frequency ring (orbit indicator)
+        const orbit = makeSVG('circle', {
+          r: n.radius + 18 + n.freq*12, fill:'none',
+          stroke: colorVal(n.color, 0.08), 'stroke-width':'1',
+          'stroke-dasharray': '3 6', class:'orbit-ring'
+        });
+
+        g.appendChild(orbit);
+        g.appendChild(ring);
+        g.appendChild(path);
+        g.appendChild(label);
+
+        // Events
+        g.addEventListener('mouseenter', () => onNodeHover(i, true));
+        g.addEventListener('mouseleave', () => onNodeHover(i, false));
+        g.addEventListener('mousedown', (e) => onNodeDragStart(e, i));
+        g.addEventListener('click', (e) => { e.stopPropagation(); onNodeClick(i); });
+
+        nodesG.appendChild(g);
+      });
+    }
+
+    // ── EDGES ────────────────────────────────────────────────────
+    function buildEdges() {
+      edgesG.innerHTML = '';
+      nodes.forEach((n, i) => {
+        n.relations.forEach(([j, w]) => {
+          if (j > i) {
+            const path = makeSVG('path', {
+              id: 'edge-'+i+'-'+j,
+              fill:'none',
+              stroke: edgeColor(n.color, nodes[j].color, w),
+              'stroke-width': 0.5 + w * 2.5,
+              opacity: 0.3 + w * 0.4,
+              filter:'url(#blur-bg)'
+            });
+            edgesG.appendChild(path);
+
+            // Pulse animation overlay
+            const pulse = makeSVG('path', {
+              id: 'epulse-'+i+'-'+j,
+              fill:'none',
+              stroke: edgeColor(n.color, nodes[j].color, w),
+              'stroke-width': 0.5 + w * 1.5,
+              opacity: 0,
+              'stroke-dasharray': '4 20'
+            });
+            edgesG.appendChild(pulse);
+          }
+        });
+      });
+    }
+
+    // ── HALOS ────────────────────────────────────────────────────
+    function buildHalos() {
+      halosG.innerHTML = '';
+      nodes.forEach((n, i) => {
+        const halo = makeSVG('circle', {
+          id:'halo-'+i, cx: n.x, cy: n.y,
+          r: n.mass * 8, fill:'url(#grad-gravity)',
+          opacity:0, 'pointer-events':'none'
+        });
+        halosG.appendChild(halo);
+      });
+    }
+
+    // ── FIELD LINES ──────────────────────────────────────────────
+    function buildFieldLines() {
+      fieldLinesG.innerHTML = '';
+      fieldLinePaths = [];
+      const numLines = 28;
+      for (let k = 0; k < numLines; k++) {
+        const p = makeSVG('path', {
+          fill:'none', stroke:'#00ffe7',
+          'stroke-width':'0.6', opacity:'0.12',
+          'pointer-events':'none'
+        });
+        fieldLinesG.appendChild(p);
+        fieldLinePaths.push(p);
+      }
+    }
+
+    function updateFieldLines() {
+      const numLines = fieldLinePaths.length;
+      const steps = 80, stepSize = 7;
+      for (let k = 0; k < numLines; k++) {
+        const angle = (k / numLines) * Math.PI * 2;
+        const seedR = 340;
+        let x = CX + seedR * Math.cos(angle);
+        let y = CY + seedR * Math.sin(angle) * 0.8;
+        let pts = [[x, y]];
+
+        for (let s = 0; s < steps; s++) {
+          // Gradient of curvature field κ(x,y)
+          const dx = 2, dy = 2;
+          const k0 = curvature(x, y);
+          const kx = (curvature(x+dx, y) - k0) / dx;
+          const ky = (curvature(x, y+dy) - k0) / dy;
+          // Flow perpendicular to gradient (iso-curvature)
+          const len = Math.sqrt(kx*kx + ky*ky) + 1e-6;
+          const fx = -ky / len;
+          const fy =  kx / len;
+          x += fx * stepSize;
+          y += fy * stepSize;
+          if (x < -50 || x > W+50 || y < -50 || y > H+50) break;
+          pts.push([x, y]);
+        }
+
+        fieldLinePaths[k].setAttribute('d', pointsToBezier(pts));
+      }
+    }
+
+    function curvature(x, y) {
+      // κ(x,y) = Σᵢ [ mᵢ / (dᵢ² + ε) ]
+      let k = 0;
+      for (let i = 0; i < N; i++) {
+        const dx = x - nodes[i].x, dy = y - nodes[i].y;
+        const d2 = dx*dx + dy*dy;
+        k += nodes[i].mass / (d2 + SOFTENING);
+      }
+      return k;
+    }
+
+    // ── PHYSICS LOOP ─────────────────────────────────────────────
+    function physicsStep() {
+      const forces = nodes.map(() => ({ fx:0, fy:0 }));
+
+      for (let i = 0; i < N; i++) {
+        for (let j = i+1; j < N; j++) {
+          const dx = nodes[j].x - nodes[i].x;
+          const dy = nodes[j].y - nodes[i].y;
+          const d2 = dx*dx + dy*dy + SOFTENING;
+          const d = Math.sqrt(d2);
+
+          // Gravitational attraction (high-mass pairs)
+          const fg = G_CONST * nodes[i].mass * nodes[j].mass / d2;
+          // Repulsion (universal)
+          const fr = K_REPULSE / d2;
+          const fnet = fg - fr;
+          const ux = dx/d, uy = dy/d;
+          forces[i].fx += fnet * ux;
+          forces[i].fy += fnet * uy;
+          forces[j].fx -= fnet * ux;
+          forces[j].fy -= fnet * uy;
+        }
+
+        // Spring forces from edges
+        nodes[i].relations.forEach(([j, w]) => {
+          const dx = nodes[j].x - nodes[i].x;
+          const dy = nodes[j].y - nodes[i].y;
+          const d = Math.sqrt(dx*dx + dy*dy) + 1e-6;
+          const restLen = REST_LEN_BASE / (w + 0.2);
+          const stretch = d - restLen;
+          const fs = K_SPRING * stretch * w;
+          forces[i].fx += fs * dx/d;
+          forces[i].fy += fs * dy/d;
+        });
+
+        // Attractor toward target during explode phase
+        if (simPhase === 'explode') {
+          const tx = nodes[i].targetX - nodes[i].x;
+          const ty = nodes[i].targetY - nodes[i].y;
+          forces[i].fx += tx * 0.04;
+          forces[i].fy += ty * 0.04;
+        }
+
+        // Boundary soft wall
+        const margin = 60;
+        if (nodes[i].x < margin)  forces[i].fx += (margin - nodes[i].x) * 0.3;
+        if (nodes[i].x > W-margin) forces[i].fx -= (nodes[i].x - (W-margin)) * 0.3;
+        if (nodes[i].y < margin)  forces[i].fy += (margin - nodes[i].y) * 0.3;
+        if (nodes[i].y > H-margin) forces[i].fy -= (nodes[i].y - (H-margin)) * 0.3;
+      }
+
+      // Integrate
+      for (let i = 0; i < N; i++) {
+        if (dragging === i) continue;
+        nodes[i].vx = (nodes[i].vx + forces[i].fx * DT) * DAMPING;
+        nodes[i].vy = (nodes[i].vy + forces[i].fy * DT) * DAMPING;
+        nodes[i].x += nodes[i].vx;
+        nodes[i].y += nodes[i].vy;
+      }
+    }
+
+    // ── RENDER ───────────────────────────────────────────────────
+    let renderTick = 0;
+    function render() {
+      renderTick++;
+
+      // Update node transforms
+      nodes.forEach((n, i) => {
+        const g = document.getElementById('node-g-'+i);
+        if (g) g.setAttribute('transform', 'translate('+n.x.toFixed(1)+','+n.y.toFixed(1)+')');
+
+        // Morph path
+        const path = document.getElementById('npath-'+i);
+        if (path) {
+          const t = morphStates[i];
+          if (t > 0) {
+            path.setAttribute('d', morphPath(n.radius, n.entropy, t));
+          } else {
+            path.setAttribute('d', circlePath(n.radius));
+          }
+        }
+
+        // Halo position
+        const halo = document.getElementById('halo-'+i);
+        if (halo) {
+          halo.setAttribute('cx', n.x.toFixed(1));
+          halo.setAttribute('cy', n.y.toFixed(1));
+        }
+      });
+
+      // Update edges
+      nodes.forEach((n, i) => {
+        n.relations.forEach(([j, w]) => {
+          if (j > i) {
+            const ep = document.getElementById('edge-'+i+'-'+j);
+            if (ep) ep.setAttribute('d', elasticEdge(n, nodes[j], w));
+            const pulse = document.getElementById('epulse-'+i+'-'+j);
+            if (pulse) {
+              pulse.setAttribute('d', elasticEdge(n, nodes[j], w));
+              const po = 0.15 + 0.25 * Math.sin(renderTick * 0.03 + i * 0.7);
+              pulse.setAttribute('opacity', po);
+              const offset = (renderTick * 0.4) % 24;
+              pulse.setAttribute('stroke-dashoffset', offset);
+            }
+          }
+        });
+      });
+
+      // Update field lines every 4 frames
+      if (renderTick % 4 === 0) updateFieldLines();
+
+      // Phase transitions
+      simTick++;
+      if (simPhase === 'explode' && simTick > 160) simPhase = 'settle';
+      if (simPhase === 'settle' && simTick > 400) simPhase = 'idle';
+    }
+
+    // ── MAIN LOOP ────────────────────────────────────────────────
+    function loop() {
+      physicsStep();
+      render();
+      animFrame = requestAnimationFrame(loop);
+    }
+
+    // ── CENTER PULSE ANIMATION ───────────────────────────────────
+    function startCenterPulse() {
+      let r = 0, expanding = true;
+      function pulseTick() {
+        if (simPhase !== 'explode') { centerPulse.setAttribute('opacity', 0); return; }
+        r += expanding ? 4 : -2;
+        if (r > 420) expanding = false;
+        if (r < 0) { r = 0; expanding = true; }
+        centerPulse.setAttribute('r', r);
+        centerPulse.setAttribute('opacity', Math.max(0, 0.5 - r/840));
+        requestAnimationFrame(pulseTick);
+      }
+      pulseTick();
+    }
+
+    // ── INTERACTIONS ─────────────────────────────────────────────
+    function onNodeHover(i, entering) {
+      hoveredNode = entering ? i : null;
+      const halo = document.getElementById('halo-'+i);
+      const ring = document.getElementById('ring-'+i);
+      halosG.setAttribute('opacity', entering ? '1' : '0');
+      if (halo) halo.setAttribute('opacity', entering ? '0.9' : '0');
+      if (ring) ring.setAttribute('opacity', entering ? '1' : '0.6');
+
+      if (entering) {
+        showTooltip(i);
+      } else {
+        tooltipPanel.setAttribute('visibility', 'hidden');
+      }
+    }
+
+    function showTooltip(i) {
+      const n = nodes[i];
+      const c = CONCEPTS[i];
+      document.getElementById('tt-name').textContent = c.name;
+      document.getElementById('tt-freq').textContent = 'FREQUENCY  ' + (c.freq * 100).toFixed(0) + '%';
+      document.getElementById('tt-entropy').textContent = 'ENTROPY    ' + (c.entropy * 100).toFixed(0) + '%';
+      document.getElementById('tt-mass').textContent = 'MASS       ' + n.mass.toFixed(1) + ' u';
+      const cp = 2 + Math.floor(c.entropy * 6);
+      document.getElementById('tt-shape').textContent = 'BÉZIER PTS ' + cp + '  ·  SHAPE ' + (morphStates[i] > 0.5 ? 'MORPHED' : 'BASE');
+      tooltipPanel.setAttribute('visibility', 'visible');
+      // Position tooltip near node
+      const tx = Math.min(n.x + 20, W - 300);
+      const ty = Math.max(n.y - 80, 10);
+      tooltipPanel.setAttribute('x', tx);
+      tooltipPanel.setAttribute('y', ty);
+    }
+
+    function onNodeClick(i) {
+      // Toggle morph state with smooth interpolation
+      const target = morphStates[i] > 0.5 ? 0 : 1;
+      const start = morphStates[i];
+      const t0 = performance.now();
+      const dur = 600;
+      function morphAnim(now) {
+        const p = Math.min((now - t0) / dur, 1);
+        const ease = p < 0.5 ? 2*p*p : -1+(4-2*p)*p; // ease in-out
+        morphStates[i] = start + (target - start) * ease;
+        if (p < 1) requestAnimationFrame(morphAnim);
+        else morphStates[i] = target;
+      }
+      requestAnimationFrame(morphAnim);
+    }
+
+    function onNodeDragStart(e, i) {
+      e.preventDefault();
+      dragging = i;
+      const pt = svgPoint(e);
+      dragOffX = pt.x - nodes[i].x;
+      dragOffY = pt.y - nodes[i].y;
+      nodes[i].vx = 0; nodes[i].vy = 0;
+      const g = document.getElementById('node-g-'+i);
+      if (g) g.setAttribute('cursor', 'grabbing');
+    }
+
+    root.addEventListener('mousemove', (e) => {
+      if (dragging === null) return;
+      const pt = svgPoint(e);
+      nodes[dragging].x = pt.x - dragOffX;
+      nodes[dragging].y = pt.y - dragOffY;
+      nodes[dragging].vx = 0; nodes[dragging].vy = 0;
+    });
+
+    root.addEventListener('mouseup', () => {
+      if (dragging !== null) {
+        const g = document.getElementById('node-g-'+dragging);
+        if (g) g.setAttribute('cursor', 'grab');
+        nodes[dragging].vx = 0; nodes[dragging].vy = 0;
+        dragging = null;
+      }
+    });
+
+    root.addEventListener('dblclick', (e) => {
+      if (e.target === root || e.target.closest('#manifold') || e.target.closest('#field-lines')) {
+        resetSimulation();
+      }
+    });
+
+    function resetSimulation() {
+      cancelAnimationFrame(animFrame);
+      simPhase = 'explode';
+      simTick = 0;
+      morphStates.fill(0);
+      tooltipPanel.setAttribute('visibility', 'hidden');
+      nodes.forEach((n, i) => {
+        n.x = CX + (Math.random()-0.5)*10;
+        n.y = CY + (Math.random()-0.5)*10;
+        n.vx = (Math.random()-0.5)*3;
+        n.vy = (Math.random()-0.5)*3;
+      });
+      startCenterPulse();
+      loop();
+    }
+
+    function toggleLayer(id) {
+      layerVisibility[id] = !layerVisibility[id];
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('opacity', layerVisibility[id] ? '1' : '0');
+      el.style.pointerEvents = layerVisibility[id] ? '' : 'none';
+    }
+
+    // ── GEOMETRY HELPERS ─────────────────────────────────────────
+    function circlePath(r) {
+      // SVG circle as cubic Bézier (4 arcs)
+      const k = r * 0.5523;
+      return `M ${r},0 C ${r},${k} ${k},${r} 0,${r} C ${-k},${r} ${-r},${k} ${-r},0 C ${-r},${-k} ${-k},${-r} 0,${-r} C ${k},${-r} ${r},${-k} ${r},0 Z`;
+    }
+
+    function morphPath(r, entropy, t) {
+      // Entropy → number of control points (star-burst polygon with Bézier smoothing)
+      const nPts = 2 + Math.floor(entropy * 6); // 2–8
+      const outerR = r * (1 + entropy * 0.6);
+      const innerR = r * (0.4 + (1-entropy) * 0.4);
+      const pts = [];
+      for (let k = 0; k < nPts * 2; k++) {
+        const angle = (k / (nPts * 2)) * Math.PI * 2 - Math.PI/2;
+        const rad = k % 2 === 0 ? outerR : innerR;
+        pts.push([rad * Math.cos(angle), rad * Math.sin(angle)]);
+      }
+      // Lerp between circle and star
+      const circlePts = [];
+      for (let k = 0; k < nPts * 2; k++) {
+        const angle = (k / (nPts * 2)) * Math.PI * 2;
+        circlePts.push([r * Math.cos(angle), r * Math.sin(angle)]);
+      }
+      const lerped = pts.map((p, k) => [
+        circlePts[k][0] + (p[0] - circlePts[k][0]) * t,
+        circlePts[k][1] + (p[1] - circlePts[k][1]) * t
+      ]);
+      return smoothPolygon(lerped);
+    }
+
+    function smoothPolygon(pts) {
+      if (pts.length < 2) return '';
+      let d = 'M ' + pts[0][0].toFixed(2) + ',' + pts[0][1].toFixed(2);
+      for (let i = 0; i < pts.length; i++) {
+        const p0 = pts[(i - 1 + pts.length) % pts.length];
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % pts.length];
+        const cp1x = p1[0] + (p2[0] - p0[0]) * 0.18;
+        const cp1y = p1[1] + (p2[1] - p0[1]) * 0.18;
+        const cp2x = p2[0] - (pts[(i+2)%pts.length][0] - p1[0]) * 0.18;
+        const cp2y = p2[1] - (pts[(i+2)%pts.length][1] - p1[1]) * 0.18;
+        d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+      }
+      return d + ' Z';
+    }
+
+    function elasticEdge(a, b, w) {
+      // Quadratic Bézier with control point displaced by curvature
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const k = curvature(mx, my);
+      const bend = Math.min(k * 1200, 60) * (1 - w);
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.sqrt(dx*dx+dy*dy)+1e-6;
+      const nx = -dy/len, ny = dx/len;
+      const cpx = mx + nx * bend, cpy = my + ny * bend;
+      return `M ${a.x.toFixed(1)},${a.y.toFixed(1)} Q ${cpx.toFixed(1)},${cpy.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+    }
+
+    function pointsToBezier(pts) {
+      if (pts.length < 2) return '';
+      let d = 'M '+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i+1][0]) / 2;
+        const my = (pts[i][1] + pts[i+1][1]) / 2;
+        d += ' Q '+pts[i][0].toFixed(1)+','+pts[i][1].toFixed(1)+' '+mx.toFixed(1)+','+my.toFixed(1);
+      }
+      const last = pts[pts.length-1];
+      d += ' L '+last[0].toFixed(1)+','+last[1].toFixed(1);
+      return d;
+    }
+
+    // ── COLOR HELPERS ────────────────────────────────────────────
+    function colorVal(color, alpha) {
+      if (color === 'cyan')    return `rgba(0,255,231,${alpha})`;
+      if (color === 'magenta') return `rgba(204,68,255,${alpha})`;
+      if (color === 'gold')    return `rgba(255,204,0,${alpha})`;
+      return `rgba(255,255,255,${alpha})`;
+    }
+    function gradKey(color) {
+      if (color === 'cyan')    return 'high';
+      if (color === 'magenta') return 'mid';
+      return 'low';
+    }
+    function edgeColor(c1, c2, w) {
+      if (c1 === c2) return colorVal(c1, 0.7);
+      return `rgba(120,200,255,0.6)`;
+    }
+
+    // ── SVG UTILITIES ────────────────────────────────────────────
+    function makeSVG(tag, attrs) {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+
+    function svgPoint(e) {
+      const pt = root.createSVGPoint();
+      pt.x = e.clientX; pt.y = e.clientY;
+      return pt.matrixTransform(root.getScreenCTM().inverse());
+    }
+
+    // ── BOOT ─────────────────────────────────────────────────────
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+  })();
+  ]]></script>
+
+</svg>

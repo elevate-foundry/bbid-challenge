@@ -1665,8 +1665,10 @@
     // Sal — Identity AI Persona
     // ═══════════════════════════════════════════════════════════════════════
     class SalAI {
-        constructor() {
+        constructor(workerUrl, visitorId) {
             this.NAME_KEY = 'sal_user_name';
+            this.workerUrl = workerUrl;
+            this.visitorId = visitorId;
             this.container = document.getElementById('sal-container');
             this.msgEl = document.getElementById('sal-message');
             this.inputWrap = document.getElementById('sal-input-wrap');
@@ -1687,14 +1689,47 @@
             const clean = name.trim();
             const normalized = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
             localStorage.setItem(this.NAME_KEY, normalized);
+            // Sync name to Neo4j Visitor node for cross-device recognition
+            if (this.workerUrl && this.visitorId) {
+                fetch(this.workerUrl + '/name', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visitorId: this.visitorId, name: normalized })
+                }).catch(() => {});
+            }
+        }
+
+        // Try to pull name from Neo4j graph (cross-device sync)
+        async _fetchGraphName() {
+            try {
+                const res = await fetch(this.workerUrl + '/graph');
+                const data = await res.json();
+                if (data.nodes) {
+                    for (const n of data.nodes) {
+                        if (n.label === 'Visitor' && n.properties && n.properties.displayName) {
+                            return n.properties.displayName;
+                        }
+                    }
+                }
+            } catch {}
+            return '';
         }
 
         // Speak after fingerprint is ready
-        speak(visitNum, fp, confidence) {
-            const name = this.getUserName();
+        async speak(visitNum, fp, confidence) {
+            let name = this.getUserName();
+
+            // Cross-device: if no local name, check if any Visitor in the graph has one
+            if (!name) {
+                const graphName = await this._fetchGraphName();
+                if (graphName) {
+                    this.setUserName(graphName);
+                    name = graphName;
+                }
+            }
 
             if (!name) {
-                // No name stored — introduce and ask, regardless of visit count
+                // No name anywhere — introduce and ask
                 const intro = visitNum > 1
                     ? "Hi, I'm <strong>Sal</strong>. I've seen you <em>" + visitNum + " times</em> now — " +
                       "same <em>" + fp.getDeviceType() + "</em>, same <em>" + fp.getOS() + "</em>. " +
@@ -1909,7 +1944,7 @@
         document.getElementById('bbid-display').classList.remove('scanning-overlay');
 
         // Sal speaks
-        const sal = new SalAI();
+        const sal = new SalAI(WORKER_URL, visitorId);
         setTimeout(() => sal.speak(visitNum, fp, confidence), 800);
 
         // Populate fingerprint grid
