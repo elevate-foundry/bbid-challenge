@@ -617,9 +617,154 @@
             transition: opacity 0.2s;
         }
         .sal-input-wrap button:hover { opacity: 0.85; }
+
+        /* GDPR Consent Banner */
+        .consent-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 18, 0.95);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .consent-overlay.hidden { display: none; }
+        .consent-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 560px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .consent-card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--text), var(--braille));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .consent-card p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+        .consent-card ul {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            line-height: 1.8;
+            margin: 0 0 16px 20px;
+        }
+        .consent-card ul li { margin-bottom: 4px; }
+        .consent-card ul li strong { color: var(--text); }
+        .consent-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .consent-actions button {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-family: var(--font-sans);
+        }
+        .consent-accept {
+            background: var(--success);
+            color: #000;
+        }
+        .consent-accept:hover {
+            box-shadow: 0 4px 20px rgba(0, 230, 118, 0.3);
+        }
+        .consent-decline {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-dim);
+            border: 1px solid var(--border) !important;
+        }
+        .consent-decline:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .consent-detail {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .consent-detail summary {
+            color: var(--accent);
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        .consent-detail p {
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+        .consent-withdraw {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            color: var(--danger);
+            background: rgba(255, 82, 82, 0.1);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--font-sans);
+        }
+        .consent-withdraw:hover {
+            background: rgba(255, 82, 82, 0.2);
+        }
     </style>
 </head>
 <body>
+    <!-- GDPR Consent Overlay — blocks all fingerprinting until opt-in -->
+    <div class="consent-overlay" id="consent-overlay">
+        <div class="consent-card">
+            <h2>⠃ Before We Begin</h2>
+            <p>
+                BBID is a <strong>research demo</strong> that fingerprints your device using browser signals, 
+                behavioral biometrics, and hardware characteristics. <strong>No data is collected until you consent.</strong>
+            </p>
+            <p>If you opt in, we will collect:</p>
+            <ul>
+                <li><strong>Device signals</strong> — screen size, OS, browser, GPU renderer, CPU cores, memory</li>
+                <li><strong>Canvas &amp; WebGL hashes</strong> — one-way hashed rendering fingerprints</li>
+                <li><strong>Behavioral biometrics</strong> — mouse movement, keystroke rhythm, scroll velocity</li>
+                <li><strong>Math timing</strong> — hardware-specific computation latency</li>
+                <li><strong>Your name</strong> — only if you choose to provide it</li>
+            </ul>
+            <p>
+                All data is stored in a <strong>Neo4j graph database</strong> and associated with a pseudonymous visitor ID. 
+                Fingerprints are <strong>one-way SHA-256 hashed</strong> — we cannot reverse them to recover raw data.
+            </p>
+            <details class="consent-detail">
+                <summary>Data rights &amp; retention details</summary>
+                <p>
+                    <strong>Purpose:</strong> Research demonstration of transparent identity inference using braille-encoded biometrics.<br>
+                    <strong>Legal basis:</strong> Explicit consent (GDPR Article 6(1)(a)).<br>
+                    <strong>Retention:</strong> Data is retained until you delete it. There is no automatic expiration.<br>
+                    <strong>Right to erasure:</strong> Click "Reset My BBID" to delete all your data from our servers (GDPR Article 17).<br>
+                    <strong>Right to withdraw:</strong> You can withdraw consent at any time via the footer link. This stops all collection and deletes stored data.<br>
+                    <strong>Data controller:</strong> Elevate Foundry (research project).<br>
+                    <strong>Third parties:</strong> Neo4j Aura (database), Cloudflare (worker hosting). No data is shared with advertisers or analytics providers.
+                </p>
+            </details>
+            <div class="consent-actions">
+                <button class="consent-decline" id="consent-decline">No Thanks</button>
+                <button class="consent-accept" id="consent-accept">I Consent — Start Demo</button>
+            </div>
+        </div>
+    </div>
+
     <div class="braille-bg" id="braille-bg" aria-hidden="true"></div>
 
     <div class="container">
@@ -830,8 +975,9 @@
                 Graph: <strong>Neo4j</strong>
             </p>
             <p style="margin-top: 8px; font-size: 0.7rem;">
-                No personal data is stored server-side without consent. Device fingerprints are one-way hashed.
+                No data is collected without explicit consent. Device fingerprints are one-way hashed.
                 <br>This is a research demo for braille-encoded behavioral biometrics.
+                <br><button class="consent-withdraw" id="btn-withdraw-consent">Withdraw Consent &amp; Delete My Data</button>
             </p>
         </div>
     </div>
@@ -1909,9 +2055,69 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // App Controller
+    // GDPR Consent Gate
     // ═══════════════════════════════════════════════════════════════════════
-    (async function main() {
+    const CONSENT_KEY = 'bbid_consent';
+
+    function hasConsent() {
+        try { return localStorage.getItem(CONSENT_KEY) === 'granted'; } catch { return false; }
+    }
+
+    function grantConsent() {
+        localStorage.setItem(CONSENT_KEY, 'granted');
+        document.getElementById('consent-overlay').classList.add('hidden');
+        bbidMain();
+    }
+
+    function declineConsent() {
+        document.getElementById('consent-overlay').innerHTML =
+            '<div class="consent-card" style="text-align:center">' +
+            '<h2>No Problem</h2>' +
+            '<p style="color:var(--text-dim)">No data has been collected. You can close this page or ' +
+            '<a href="javascript:location.reload()" style="color:var(--accent)">reload to reconsider</a>.</p>' +
+            '</div>';
+    }
+
+    async function withdrawConsent() {
+        // Delete server-side data
+        const identity = new BBIDIdentityManager();
+        const vid = identity.getVisitorId();
+        if (vid) {
+            try {
+                await fetch(WORKER_URL + '/visitor', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ visitorId: vid })
+                });
+            } catch {}
+        }
+        // Clear all local state
+        localStorage.removeItem(CONSENT_KEY);
+        localStorage.removeItem('bbid_identity');
+        localStorage.removeItem('bbid_sessions');
+        localStorage.removeItem('sal_user_name');
+        location.reload();
+    }
+
+    // Wire consent buttons
+    document.getElementById('consent-accept').addEventListener('click', grantConsent);
+    document.getElementById('consent-decline').addEventListener('click', declineConsent);
+    document.getElementById('btn-withdraw-consent').addEventListener('click', async () => {
+        if (confirm('This will withdraw your consent, delete all your data from our servers, and clear local storage. Continue?')) {
+            await withdrawConsent();
+        }
+    });
+
+    // Auto-start if already consented, otherwise show banner
+    if (hasConsent()) {
+        document.getElementById('consent-overlay').classList.add('hidden');
+        bbidMain();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // App Controller (only runs after consent)
+    // ═══════════════════════════════════════════════════════════════════════
+    async function bbidMain() {
         const fp = new BBIDFingerprint();
         const behavior = new BehaviorTracker();
         const identity = new BBIDIdentityManager();
@@ -2094,7 +2300,7 @@
             navigator.vibrate(pattern);
         });
 
-    })();
+    }
     </script>
 </body>
 </html>
