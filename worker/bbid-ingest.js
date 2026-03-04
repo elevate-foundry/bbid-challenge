@@ -371,6 +371,139 @@ export default {
       }
     }
 
+    // GET /linked — cross-device identity linking
+    if (request.method === 'GET' && url.pathname === '/linked') {
+      try {
+        const fpHash = url.searchParams.get('fp');
+        if (!fpHash) {
+          return new Response(JSON.stringify({ error: 'Missing fp param' }), {
+            status: 400, headers: { 'Content-Type': 'application/json', ...cors }
+          });
+        }
+
+        // 1. Find the current visitor and their device signals
+        const selfResult = await runCypher(env, `
+          MATCH (v:Visitor)-[:HAS_DEVICE]->(d:Device)-[:HAS_FINGERPRINT]->(f:Fingerprint {id: $fpHash})
+          RETURN v.id AS vid, v.displayName AS name,
+                 d.timezone AS tz, d.os AS os, d.browser AS browser,
+                 d.cores AS cores, d.memory AS mem, d.screenW AS sw, d.screenH AS sh,
+                 d.language AS lang, d.type AS dtype, d.pixelRatio AS pr
+        `, { fpHash });
+
+        const self = (selfResult.data?.values || [])[0];
+        if (!self) {
+          return new Response(JSON.stringify({ linked: [], self: null }), {
+            status: 200, headers: { 'Content-Type': 'application/json', ...cors }
+          });
+        }
+
+        const [vid, displayName, tz, os, browser, cores, mem, sw, sh, lang, dtype, pr] = self;
+
+        // 2. Find candidate visitors (different visitor, with device data)
+        const candidatesResult = await runCypher(env, `
+          MATCH (v2:Visitor)-[:HAS_DEVICE]->(d2:Device)-[:HAS_FINGERPRINT]->(f2:Fingerprint)
+          WHERE v2.id <> $vid
+          OPTIONAL MATCH (v2)-[:SESSION]->(s:Session)
+          WITH v2, d2, f2, count(s) AS sessions
+          RETURN v2.id AS vid, v2.displayName AS name,
+                 d2.timezone AS tz, d2.os AS os, d2.browser AS browser,
+                 d2.cores AS cores, d2.memory AS mem, d2.screenW AS sw, d2.screenH AS sh,
+                 d2.language AS lang, d2.type AS dtype, d2.pixelRatio AS pr,
+                 f2.id AS fpId, sessions
+          LIMIT 50
+        `, { vid });
+
+        const candidates = (candidatesResult.data?.values || []);
+
+        // 3. Score each candidate
+        const linked = [];
+        for (const c of candidates) {
+          const [cVid, cName, cTz, cOs, cBrowser, cCores, cMem, cSw, cSh, cLang, cDtype, cPr, cFpId, cSessions] = c;
+          let score = 0;
+          let signals = [];
+
+          // Name match (strongest signal)
+          if (displayName && cName && displayName.toLowerCase() === cName.toLowerCase()) {
+            score += 0.45;
+            signals.push('name');
+          }
+
+          // Timezone match
+          if (tz && cTz && tz === cTz) { score += 0.10; signals.push('timezone'); }
+
+          // Language match
+          if (lang && cLang && lang === cLang) { score += 0.08; signals.push('language'); }
+
+          // OS family match
+          if (os && cOs && os === cOs) { score += 0.08; signals.push('os'); }
+
+          // Different device type is expected for cross-device (bonus)
+          if (dtype && cDtype && dtype !== cDtype) { score += 0.05; signals.push('diff_device'); }
+
+          // CPU cores match (weak but additive)
+          if (cores && cCores && cores === cCores) { score += 0.04; signals.push('cores'); }
+
+          // Memory match
+          if (mem && cMem && mem === cMem) { score += 0.04; signals.push('memory'); }
+
+          // Pixel ratio match
+          if (pr && cPr && pr === cPr) { score += 0.03; signals.push('pixel_ratio'); }
+
+          // Same browser across devices (weaker)
+          if (browser && cBrowser && browser === cBrowser) { score += 0.03; signals.push('browser'); }
+
+          // Screen size similarity (within 20%)
+          if (sw && sh && cSw && cSh) {
+            const area1 = sw * sh;
+            const area2 = cSw * cSh;
+            const ratio = Math.min(area1, area2) / Math.max(area1, area2);
+            if (ratio > 0.8) { score += 0.02; signals.push('screen_similar'); }
+          }
+
+          const confidence = Math.min(0.98, score);
+
+          // Only report candidates above 20% confidence
+          if (confidence >= 0.20) {
+            linked.push({
+              visitorId: cVid,
+              displayName: cName || null,
+              deviceType: cDtype || null,
+              os: cOs || null,
+              browser: cBrowser || null,
+              fingerprintId: cFpId,
+              sessions: cSessions || 0,
+              confidence: Math.round(confidence * 100) / 100,
+              signals
+            });
+
+            // Create/update LIKELY_SAME_AS relationship in the graph
+            if (confidence >= 0.35) {
+              await runCypher(env, `
+                MATCH (v1:Visitor {id: $v1}), (v2:Visitor {id: $v2})
+                MERGE (v1)-[r:LIKELY_SAME_AS]->(v2)
+                SET r.confidence = $conf, r.signals = $signals, r.updated = datetime()
+              `, { v1: vid, v2: cVid, conf: confidence, signals: signals.join(',') });
+            }
+          }
+        }
+
+        // Sort by confidence descending
+        linked.sort((a, b) => b.confidence - a.confidence);
+
+        return new Response(JSON.stringify({
+          self: { visitorId: vid, displayName: displayName || null },
+          linked
+        }), {
+          status: 200, headers: { 'Content-Type': 'application/json', ...cors }
+        });
+
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message, linked: [] }), {
+          status: 200, headers: { 'Content-Type': 'application/json', ...cors }
+        });
+      }
+    }
+
     // Only accept POST for ingest
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {

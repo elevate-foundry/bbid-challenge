@@ -711,6 +711,52 @@
             font-size: 0.8rem;
             margin-bottom: 8px;
         }
+        /* Cross-device links */
+        .cross-device-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .cross-device-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .cross-device-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .linked-device {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(0, 255, 231, 0.04);
+            border: 1px solid rgba(0, 255, 231, 0.12);
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+        .linked-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        .linked-info {
+            flex: 1;
+            color: var(--text-dim);
+        }
+        .linked-conf {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 0.85rem;
+            font-family: var(--font-mono);
+        }
+
         /* Mobile consent responsive */
         @media (max-width: 480px) {
             .consent-overlay {
@@ -872,6 +918,14 @@
                 <div class="visit-counter">
                     Visit <strong id="visit-count">#1</strong> from this device
                 </div>
+            </div>
+            <!-- Cross-device links (hidden until matches found) -->
+            <div class="cross-device-section" id="cross-device-section" style="display:none">
+                <div class="cross-device-header">
+                    <span class="icon">🔗</span> Linked Devices
+                    <span class="card-badge badge-braille" id="cross-device-count">0</span>
+                </div>
+                <div class="cross-device-list" id="cross-device-links"></div>
             </div>
         </div>
 
@@ -1235,7 +1289,8 @@
                             screenH: this.components.screenH,
                             pixelRatio: this.components.pixelRatio,
                             colorDepth: this.components.colorDepth,
-                            timezone: this.components.timezone
+                            timezone: this.components.timezone,
+                            language: this.components.language
                         }
                     },
                     {
@@ -2040,6 +2095,55 @@
             // Could add a subtle follow-up, keeping it simple for now
         }
 
+        // Called when cross-device links are found
+        onCrossDeviceLink(topMatch, totalLinks) {
+            if (this.typing) {
+                // Wait for current message to finish, then follow up
+                const check = setInterval(() => {
+                    if (!this.typing) {
+                        clearInterval(check);
+                        this._showCrossDeviceMessage(topMatch, totalLinks);
+                    }
+                }, 500);
+            } else {
+                this._showCrossDeviceMessage(topMatch, totalLinks);
+            }
+        }
+
+        _showCrossDeviceMessage(topMatch, totalLinks) {
+            const name = this.getUserName();
+            const conf = Math.round(topMatch.confidence * 100);
+            const device = topMatch.deviceType || 'another device';
+            const os = topMatch.os || '';
+            const browser = topMatch.browser || '';
+            const deviceDesc = [device, os, browser].filter(Boolean).join(' / ');
+            const nameTag = name ? '<strong>' + this._esc(name) + '</strong>' : 'you';
+
+            let msg;
+            if (topMatch.signals.includes('name')) {
+                msg = "Interesting — I found " + nameTag + " on <em>" + deviceDesc + "</em> too. " +
+                      "Same name, " + (topMatch.signals.length - 1) + " other matching signals. " +
+                      "<strong>" + conf + "% confidence</strong> it's the same person. " +
+                      "The graph is linking your identities across devices.";
+            } else if (conf >= 50) {
+                msg = "I'm seeing a shadow of " + nameTag + " elsewhere. " +
+                      "A <em>" + deviceDesc + "</em> shares your " +
+                      topMatch.signals.filter(s => s !== 'diff_device').join(', ') + ". " +
+                      "<strong>" + conf + "%</strong> match. " +
+                      "Different fingerprint, but the behavioral signature is converging.";
+            } else {
+                msg = "Weak signal — a <em>" + deviceDesc + "</em> has some overlap with your profile. " +
+                      "Only <strong>" + conf + "%</strong>, but I'm watching. " +
+                      "A few more visits and I'll know for sure.";
+            }
+
+            if (totalLinks > 1) {
+                msg += " (" + totalLinks + " linked device" + (totalLinks > 1 ? 's' : '') + " total)";
+            }
+
+            setTimeout(() => this._typeMessage(msg), 500);
+        }
+
         _onNameSubmit() {
             const name = this.nameInput.value.trim();
             if (!name) return;
@@ -2214,6 +2318,7 @@
 
         // Sal speaks (pass fingerprint node ID for scoped graph queries)
         const sal = new SalAI(WORKER_URL, visitorId, 'fp_' + fp.rawHash);
+        window.sal = sal;
         setTimeout(() => sal.speak(visitNum, fp, confidence), 800);
 
         // Populate fingerprint grid
@@ -2245,7 +2350,7 @@
         const graph = new GraphIngest(WORKER_URL);
 
         // Send initial fingerprint to Neo4j (non-blocking)
-        graph.sendInitial(graphPayload, behavior.toGraphNode(sessionId)).then(result => {
+        graph.sendInitial(graphPayload, behavior.toGraphNode(sessionId)).then(async result => {
             const graphBadge = document.getElementById('graph-card').querySelector('.card-badge');
             if (result && result.status === 'ok') {
                 graphBadge.textContent = 'Synced';
@@ -2253,6 +2358,44 @@
                 console.log('✓ Graph ingested:', result.nodesCreated, 'nodes,', result.relationshipsCreated, 'rels');
                 // Refresh the Identity Field visualization with new data
                 if (window.identityField) window.identityField.refresh();
+
+                // ── Cross-device linking ──
+                try {
+                    const linkRes = await fetch(WORKER_URL + '/linked?fp=' + encodeURIComponent('fp_' + fp.rawHash));
+                    const linkData = await linkRes.json();
+                    if (linkData.linked && linkData.linked.length > 0) {
+                        console.log('✓ Cross-device links:', linkData.linked.length, 'candidates');
+                        window._crossDeviceLinks = linkData.linked;
+                        // Update the UI with linked devices
+                        const linkEl = document.getElementById('cross-device-links');
+                        const linkSection = document.getElementById('cross-device-section');
+                        const linkCount = document.getElementById('cross-device-count');
+                        if (linkEl && linkSection) {
+                            linkEl.innerHTML = linkData.linked.map(l =>
+                                `<div class="linked-device">` +
+                                `<span class="linked-icon">${l.deviceType === 'Mobile' ? '📱' : l.deviceType === 'Tablet' ? '📲' : '💻'}</span>` +
+                                `<span class="linked-info">${l.displayName || 'Unknown'} · ${l.os || '?'} · ${l.browser || '?'}</span>` +
+                                `<span class="linked-conf">${Math.round(l.confidence * 100)}%</span>` +
+                                `</div>`
+                            ).join('');
+                            linkSection.style.display = 'block';
+                            if (linkCount) linkCount.textContent = linkData.linked.length;
+                        }
+                        // Tell Sal about cross-device links
+                        if (window.sal && linkData.linked[0].confidence >= 0.35) {
+                            setTimeout(() => {
+                                const top = linkData.linked[0];
+                                const deviceLabel = top.deviceType || 'device';
+                                const nameMatch = top.signals.includes('name') ? ' (same name)' : '';
+                                window.sal.onCrossDeviceLink(top, linkData.linked.length);
+                            }, 3000);
+                        }
+                    } else {
+                        console.log('✓ No cross-device links found (yet)');
+                    }
+                } catch (e) {
+                    console.warn('Cross-device linking failed:', e.message);
+                }
             } else {
                 graphBadge.textContent = 'Local Only';
                 graphBadge.style.background = 'rgba(255,82,82,0.15)';

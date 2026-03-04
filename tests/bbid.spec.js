@@ -217,6 +217,19 @@ test.describe('Worker API', () => {
     expect(res.status()).toBe(400);
   });
 
+  test('GET /linked returns linked array', async ({ request }) => {
+    const res = await request.get(WORKER_URL + '/linked?fp=test_nonexistent_fp');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('linked');
+    expect(Array.isArray(body.linked)).toBe(true);
+  });
+
+  test('GET /linked rejects missing fp param', async ({ request }) => {
+    const res = await request.get(WORKER_URL + '/linked');
+    expect(res.status()).toBe(400);
+  });
+
   test('OPTIONS returns CORS headers', async ({ request }) => {
     const res = await request.fetch(WORKER_URL + '/name', { method: 'OPTIONS' });
     expect(res.status()).toBe(204);
