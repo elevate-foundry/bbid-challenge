@@ -64,6 +64,24 @@ test.describe.serial('Worker API', () => {
     expect(res.status()).toBe(400);
   });
 
+  test('GET /identity returns verdict for unknown fp', async ({ request }) => {
+    const res = await request.get(WORKER_URL + '/identity?fp=test_nonexistent_fp');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('known');
+    expect(body).toHaveProperty('confidence');
+    expect(body).toHaveProperty('verdict');
+    expect(body).toHaveProperty('evidence');
+    // Unknown fp should return known: false
+    expect(body.known).toBe(false);
+    expect(body.confidence).toBe(0);
+  });
+
+  test('GET /identity rejects missing fp param', async ({ request }) => {
+    const res = await request.get(WORKER_URL + '/identity');
+    expect(res.status()).toBe(400);
+  });
+
   test('OPTIONS returns CORS headers', async ({ request }) => {
     const res = await request.fetch(WORKER_URL + '/name', { method: 'OPTIONS' });
     expect(res.status()).toBe(204);

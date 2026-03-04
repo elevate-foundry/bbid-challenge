@@ -373,6 +373,226 @@ export default {
       }
     }
 
+    // GET /identity — server-side confidence loop
+    // Queries graph topology to compute a unified identity verdict
+    if (request.method === 'GET' && url.pathname === '/identity') {
+      try {
+        const fpHash = url.searchParams.get('fp');
+        if (!fpHash) {
+          return new Response(JSON.stringify({ error: 'Missing fp param' }), {
+            status: 400, headers: { 'Content-Type': 'application/json', ...cors }
+          });
+        }
+
+        // 1. Core identity: visitor, device, fingerprint, session history
+        const coreResult = await runCypher(env, `
+          MATCH (v:Visitor)-[:HAS_DEVICE]->(d:Device)-[:HAS_FINGERPRINT]->(f:Fingerprint {id: $fpHash})
+          OPTIONAL MATCH (v)-[:SESSION]->(s:Session)
+          WITH v, d, f, collect(s) AS sessions
+          RETURN v.id AS vid, v.displayName AS name, v.created AS created, v.lastSeen AS lastSeen,
+                 d.type AS deviceType, d.os AS os, d.browser AS browser,
+                 d.timezone AS tz, d.language AS lang,
+                 d.cores AS cores, d.memory AS mem,
+                 d.screenW AS sw, d.screenH AS sh, d.pixelRatio AS pr,
+                 f.sha256 AS sha256, f.canvas AS canvas, f.webgl AS webgl, f.mathTiming AS mathTiming,
+                 size(sessions) AS sessionCount,
+                 CASE WHEN size(sessions) > 0
+                   THEN sessions[size(sessions)-1].started
+                   ELSE null END AS lastSession,
+                 CASE WHEN size(sessions) > 1
+                   THEN sessions[0].started
+                   ELSE null END AS firstSession
+        `, { fpHash });
+
+        const core = (coreResult.data?.values || [])[0];
+        if (!core) {
+          return new Response(JSON.stringify({
+            known: false,
+            confidence: 0,
+            verdict: 'unknown',
+            evidence: [],
+            identity: null
+          }), { status: 200, headers: { 'Content-Type': 'application/json', ...cors } });
+        }
+
+        const [vid, name, created, lastSeen, deviceType, os, browser, tz, lang,
+               cores, mem, sw, sh, pr, sha256, canvas, webgl, mathTiming,
+               sessionCount, lastSession, firstSession] = core;
+
+        // 2. Graph topology: LIKELY_SAME_AS paths (transitive, up to 3 hops)
+        const linkedResult = await runCypher(env, `
+          MATCH (v:Visitor {id: $vid})
+          OPTIONAL MATCH path = (v)-[:LIKELY_SAME_AS*1..3]-(v2:Visitor)
+          WHERE v2.id <> $vid
+          WITH DISTINCT v2, 
+               reduce(c = 1.0, r IN relationships(path) | c * r.confidence) AS pathConfidence
+          OPTIONAL MATCH (v2)-[:HAS_DEVICE]->(d2:Device)
+          OPTIONAL MATCH (v2)-[:SESSION]->(s2:Session)
+          WITH v2, d2, pathConfidence, count(s2) AS sessions
+          RETURN v2.id AS vid, v2.displayName AS name,
+                 d2.type AS deviceType, d2.os AS os, d2.browser AS browser,
+                 pathConfidence, sessions
+          ORDER BY pathConfidence DESC
+          LIMIT 10
+        `, { vid });
+
+        const linkedIdentities = (linkedResult.data?.values || []).map(row => ({
+          visitorId: row[0],
+          displayName: row[1] || null,
+          deviceType: row[2] || null,
+          os: row[3] || null,
+          browser: row[4] || null,
+          pathConfidence: Math.round((row[5] || 0) * 100) / 100,
+          sessions: row[6] || 0
+        }));
+
+        // 3. Behavioral consistency: check if behavior nodes exist
+        const behaviorResult = await runCypher(env, `
+          MATCH (v:Visitor {id: $vid})-[:SESSION]->(s:Session)-[:HAS_BEHAVIOR]->(b:Behavior)
+          RETURN count(b) AS behaviorCount,
+                 avg(b.mouseMovements) AS avgMouse,
+                 avg(b.avgKeyTiming) AS avgKeyTiming,
+                 collect(b.entropy)[0..5] AS entropyHistory
+        `, { vid });
+
+        const bRow = (behaviorResult.data?.values || [])[0];
+        const behaviorCount = bRow?.[0] || 0;
+        const avgMouse = bRow?.[1] || 0;
+        const avgKeyTiming = bRow?.[2] || 0;
+        const entropyHistory = bRow?.[3] || [];
+
+        // ─── Server-Side Confidence Computation ───
+        // This is the decision layer that closes the loop.
+        // Each signal contributes independently; the graph topology
+        // provides evidence that a table-based system cannot.
+
+        let confidence = 0;
+        const evidence = [];
+
+        // Signal 1: Fingerprint stability (same hash across sessions)
+        // If they have multiple sessions with the same fingerprint, the device is stable.
+        if (sessionCount >= 1) {
+          const sessionWeight = Math.min(0.25, sessionCount * 0.05);
+          confidence += sessionWeight;
+          evidence.push({
+            signal: 'session_depth',
+            value: sessionCount,
+            weight: Math.round(sessionWeight * 100) / 100,
+            detail: `${sessionCount} session${sessionCount > 1 ? 's' : ''} with stable fingerprint`
+          });
+        }
+
+        // Signal 2: Temporal consistency (regular visitor vs one-off)
+        if (firstSession && lastSession && sessionCount > 1) {
+          const firstMs = new Date(firstSession).getTime();
+          const lastMs = new Date(lastSession).getTime();
+          const spanDays = Math.max(1, (lastMs - firstMs) / 86400000);
+          const frequency = sessionCount / spanDays;
+          const temporalWeight = Math.min(0.15, frequency * 0.05);
+          confidence += temporalWeight;
+          evidence.push({
+            signal: 'temporal_consistency',
+            value: Math.round(frequency * 100) / 100,
+            weight: Math.round(temporalWeight * 100) / 100,
+            detail: `${Math.round(spanDays)}d span, ${Math.round(frequency * 100) / 100} visits/day`
+          });
+        }
+
+        // Signal 3: Hardware fingerprint entropy
+        // More unique signals = higher confidence the fingerprint is distinctive
+        const hardwareSignals = [canvas, webgl, mathTiming, cores, mem, sw, sh, pr, tz, lang].filter(Boolean);
+        const entropyWeight = Math.min(0.20, hardwareSignals.length * 0.02);
+        confidence += entropyWeight;
+        evidence.push({
+          signal: 'hardware_entropy',
+          value: hardwareSignals.length,
+          weight: Math.round(entropyWeight * 100) / 100,
+          detail: `${hardwareSignals.length}/10 hardware signals captured`
+        });
+
+        // Signal 4: Behavioral biometrics available
+        if (behaviorCount > 0) {
+          const behaviorWeight = Math.min(0.10, behaviorCount * 0.03);
+          confidence += behaviorWeight;
+          evidence.push({
+            signal: 'behavioral_biometrics',
+            value: behaviorCount,
+            weight: Math.round(behaviorWeight * 100) / 100,
+            detail: `${behaviorCount} behavior sample${behaviorCount > 1 ? 's' : ''} recorded`
+          });
+        }
+
+        // Signal 5: Cross-device graph links (this is the topology signal)
+        // Each LIKELY_SAME_AS path adds confidence that this identity is corroborated
+        if (linkedIdentities.length > 0) {
+          const maxPathConf = linkedIdentities[0].pathConfidence;
+          const linkWeight = Math.min(0.20, linkedIdentities.length * 0.06 + maxPathConf * 0.10);
+          confidence += linkWeight;
+          evidence.push({
+            signal: 'cross_device_graph',
+            value: linkedIdentities.length,
+            weight: Math.round(linkWeight * 100) / 100,
+            detail: `${linkedIdentities.length} linked identity node${linkedIdentities.length > 1 ? 's' : ''}, strongest path ${Math.round(maxPathConf * 100)}%`
+          });
+        }
+
+        // Signal 6: Named identity (user volunteered their name)
+        if (name) {
+          confidence += 0.10;
+          evidence.push({
+            signal: 'named_identity',
+            value: name,
+            weight: 0.10,
+            detail: `Self-identified as "${name}"`
+          });
+        }
+
+        confidence = Math.round(Math.min(0.98, confidence) * 100) / 100;
+
+        // Verdict
+        let verdict;
+        if (confidence >= 0.80) verdict = 'identified';
+        else if (confidence >= 0.50) verdict = 'probable';
+        else if (confidence >= 0.25) verdict = 'emerging';
+        else verdict = 'weak';
+
+        return new Response(JSON.stringify({
+          known: true,
+          confidence,
+          verdict,
+          evidence,
+          identity: {
+            visitorId: vid,
+            displayName: name || null,
+            deviceType: deviceType || null,
+            os: os || null,
+            browser: browser || null,
+            sessions: sessionCount,
+            firstSeen: firstSession || created || null,
+            lastSeen: lastSession || lastSeen || null,
+            fingerprintHash: sha256 || null
+          },
+          linkedIdentities,
+          behaviorProfile: behaviorCount > 0 ? {
+            samples: behaviorCount,
+            avgMouseMovements: Math.round(avgMouse),
+            avgKeyTiming: avgKeyTiming ? Math.round(avgKeyTiming * 10) / 10 : null,
+            entropyHistory
+          } : null
+        }), {
+          status: 200, headers: { 'Content-Type': 'application/json', ...cors }
+        });
+
+      } catch (error) {
+        return new Response(JSON.stringify({
+          known: false, confidence: 0, verdict: 'error',
+          evidence: [], identity: null, error: error.message
+        }), {
+          status: 200, headers: { 'Content-Type': 'application/json', ...cors }
+        });
+      }
+    }
+
     // GET /linked — cross-device identity linking
     if (request.method === 'GET' && url.pathname === '/linked') {
       try {

@@ -711,6 +711,80 @@
             font-size: 0.8rem;
             margin-bottom: 8px;
         }
+        /* Server-side identity verdict */
+        .server-identity-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .server-identity-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .server-conf {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1rem;
+            font-family: var(--font-mono);
+            margin-left: auto;
+        }
+        .verdict-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .verdict-identified { background: rgba(0, 255, 231, 0.2); color: var(--accent); }
+        .verdict-probable { background: rgba(0, 200, 180, 0.15); color: #00c8b4; }
+        .verdict-emerging { background: rgba(255, 200, 0, 0.15); color: #ffc800; }
+        .verdict-weak { background: rgba(255, 82, 82, 0.12); color: var(--danger); }
+        .server-evidence {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .evidence-row {
+            display: grid;
+            grid-template-columns: 120px 60px 1fr;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72rem;
+        }
+        .evidence-signal {
+            color: var(--text-dim);
+            text-transform: capitalize;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .evidence-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .evidence-fill {
+            display: block;
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.6s ease;
+        }
+        .evidence-detail {
+            color: var(--text-dim);
+            font-size: 0.68rem;
+            opacity: 0.7;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         /* Cross-device links */
         .cross-device-section {
             margin-top: 16px;
@@ -918,6 +992,15 @@
                 <div class="visit-counter">
                     Visit <strong id="visit-count">#1</strong> from this device
                 </div>
+            </div>
+            <!-- Server-side identity verdict (hidden until /identity responds) -->
+            <div class="server-identity-section" id="server-identity-section" style="display:none">
+                <div class="server-identity-header">
+                    <span class="icon">🧠</span> Graph Identity Verdict
+                    <span class="verdict-badge verdict-weak" id="server-verdict">—</span>
+                    <span class="server-conf" id="server-confidence">0%</span>
+                </div>
+                <div class="server-evidence" id="server-evidence"></div>
             </div>
             <!-- Cross-device links (hidden until matches found) -->
             <div class="cross-device-section" id="cross-device-section" style="display:none">
@@ -2095,50 +2178,66 @@
             // Could add a subtle follow-up, keeping it simple for now
         }
 
-        // Called when cross-device links are found
-        onCrossDeviceLink(topMatch, totalLinks) {
+        // Called with the server-side identity verdict
+        onServerIdentity(idData) {
+            if (!idData || !idData.known) return;
             if (this.typing) {
-                // Wait for current message to finish, then follow up
                 const check = setInterval(() => {
                     if (!this.typing) {
                         clearInterval(check);
-                        this._showCrossDeviceMessage(topMatch, totalLinks);
+                        this._showServerVerdictMessage(idData);
                     }
                 }, 500);
             } else {
-                this._showCrossDeviceMessage(topMatch, totalLinks);
+                this._showServerVerdictMessage(idData);
             }
         }
 
-        _showCrossDeviceMessage(topMatch, totalLinks) {
+        _showServerVerdictMessage(idData) {
             const name = this.getUserName();
-            const conf = Math.round(topMatch.confidence * 100);
-            const device = topMatch.deviceType || 'another device';
-            const os = topMatch.os || '';
-            const browser = topMatch.browser || '';
-            const deviceDesc = [device, os, browser].filter(Boolean).join(' / ');
             const nameTag = name ? '<strong>' + this._esc(name) + '</strong>' : 'you';
+            const conf = Math.round(idData.confidence * 100);
+            const verdict = idData.verdict;
+            const ev = idData.evidence || [];
+            const links = idData.linkedIdentities || [];
+
+            // Build evidence summary — pick the top 2 most weighted signals
+            const topSignals = ev.sort((a, b) => b.weight - a.weight).slice(0, 2);
+            const signalDesc = topSignals.map(s => s.detail).join('. ');
 
             let msg;
-            if (topMatch.signals.includes('name')) {
-                msg = "Interesting — I found " + nameTag + " on <em>" + deviceDesc + "</em> too. " +
-                      "Same name, " + (topMatch.signals.length - 1) + " other matching signals. " +
-                      "<strong>" + conf + "% confidence</strong> it's the same person. " +
-                      "The graph is linking your identities across devices.";
-            } else if (conf >= 50) {
-                msg = "I'm seeing a shadow of " + nameTag + " elsewhere. " +
-                      "A <em>" + deviceDesc + "</em> shares your " +
-                      topMatch.signals.filter(s => s !== 'diff_device').join(', ') + ". " +
-                      "<strong>" + conf + "%</strong> match. " +
-                      "Different fingerprint, but the behavioral signature is converging.";
+            if (verdict === 'identified') {
+                msg = "The graph has spoken, " + nameTag + ". " +
+                      "<strong>" + conf + "% server-side confidence</strong> — verdict: <em>identified</em>. " +
+                      signalDesc + ". " +
+                      "This isn't a cookie. This is topology. " +
+                      "Your identity is woven into " + (idData.identity?.sessions || 1) + " sessions across the graph.";
+            } else if (verdict === 'probable') {
+                msg = "Getting there, " + nameTag + ". " +
+                      "The server says <strong>" + conf + "%</strong> — <em>probable</em> identity. " +
+                      signalDesc + ". " +
+                      "A few more visits and the graph will lock you in. " +
+                      "Hardware doesn't lie — it just needs enough observations.";
+            } else if (verdict === 'emerging') {
+                msg = "I'm building your profile, " + nameTag + ". " +
+                      "<strong>" + conf + "%</strong> — <em>emerging</em>. " +
+                      signalDesc + ". " +
+                      "The graph is young but growing. Each session adds mass to your node.";
             } else {
-                msg = "Weak signal — a <em>" + deviceDesc + "</em> has some overlap with your profile. " +
-                      "Only <strong>" + conf + "%</strong>, but I'm watching. " +
-                      "A few more visits and I'll know for sure.";
+                msg = "First impressions: <strong>" + conf + "%</strong> confidence. " +
+                      "The graph barely knows " + nameTag + " yet. " +
+                      signalDesc + ". " +
+                      "Come back. The identity field gets stronger with repetition.";
             }
 
-            if (totalLinks > 1) {
-                msg += " (" + totalLinks + " linked device" + (totalLinks > 1 ? 's' : '') + " total)";
+            if (links.length > 0) {
+                const topLink = links[0];
+                const deviceDesc = [topLink.deviceType, topLink.os, topLink.browser].filter(Boolean).join(' / ');
+                msg += " I also see " + nameTag + " on <em>" + deviceDesc + "</em> — " +
+                       "<strong>" + Math.round(topLink.pathConfidence * 100) + "%</strong> graph path confidence.";
+                if (links.length > 1) {
+                    msg += " (" + links.length + " linked devices total)";
+                }
             }
 
             setTimeout(() => this._typeMessage(msg), 500);
@@ -2359,42 +2458,59 @@
                 // Refresh the Identity Field visualization with new data
                 if (window.identityField) window.identityField.refresh();
 
-                // ── Cross-device linking ──
+                // ── Server-side confidence loop ──
                 try {
-                    const linkRes = await fetch(WORKER_URL + '/linked?fp=' + encodeURIComponent('fp_' + fp.rawHash));
-                    const linkData = await linkRes.json();
-                    if (linkData.linked && linkData.linked.length > 0) {
-                        console.log('✓ Cross-device links:', linkData.linked.length, 'candidates');
-                        window._crossDeviceLinks = linkData.linked;
-                        // Update the UI with linked devices
+                    const idRes = await fetch(WORKER_URL + '/identity?fp=' + encodeURIComponent('fp_' + fp.rawHash));
+                    const idData = await idRes.json();
+                    window._serverIdentity = idData;
+                    console.log('✓ Server identity:', idData.verdict, Math.round(idData.confidence * 100) + '%');
+
+                    // Update server-side confidence in UI
+                    const serverConfEl = document.getElementById('server-confidence');
+                    const serverVerdictEl = document.getElementById('server-verdict');
+                    const evidenceEl = document.getElementById('server-evidence');
+                    if (serverConfEl) serverConfEl.textContent = Math.round(idData.confidence * 100) + '%';
+                    if (serverVerdictEl) {
+                        serverVerdictEl.textContent = idData.verdict.toUpperCase();
+                        serverVerdictEl.className = 'verdict-badge verdict-' + idData.verdict;
+                    }
+                    if (evidenceEl && idData.evidence) {
+                        evidenceEl.innerHTML = idData.evidence.map(e =>
+                            `<div class="evidence-row">` +
+                            `<span class="evidence-signal">${e.signal.replace(/_/g, ' ')}</span>` +
+                            `<span class="evidence-bar"><span class="evidence-fill" style="width:${Math.round(e.weight * 500)}%"></span></span>` +
+                            `<span class="evidence-detail">${e.detail}</span>` +
+                            `</div>`
+                        ).join('');
+                    }
+                    // Show the server identity section
+                    const serverSection = document.getElementById('server-identity-section');
+                    if (serverSection) serverSection.style.display = 'block';
+
+                    // Cross-device links from identity response
+                    if (idData.linkedIdentities && idData.linkedIdentities.length > 0) {
                         const linkEl = document.getElementById('cross-device-links');
                         const linkSection = document.getElementById('cross-device-section');
                         const linkCount = document.getElementById('cross-device-count');
                         if (linkEl && linkSection) {
-                            linkEl.innerHTML = linkData.linked.map(l =>
+                            linkEl.innerHTML = idData.linkedIdentities.map(l =>
                                 `<div class="linked-device">` +
                                 `<span class="linked-icon">${l.deviceType === 'Mobile' ? '📱' : l.deviceType === 'Tablet' ? '📲' : '💻'}</span>` +
                                 `<span class="linked-info">${l.displayName || 'Unknown'} · ${l.os || '?'} · ${l.browser || '?'}</span>` +
-                                `<span class="linked-conf">${Math.round(l.confidence * 100)}%</span>` +
+                                `<span class="linked-conf">${Math.round(l.pathConfidence * 100)}%</span>` +
                                 `</div>`
                             ).join('');
                             linkSection.style.display = 'block';
-                            if (linkCount) linkCount.textContent = linkData.linked.length;
+                            if (linkCount) linkCount.textContent = idData.linkedIdentities.length;
                         }
-                        // Tell Sal about cross-device links
-                        if (window.sal && linkData.linked[0].confidence >= 0.35) {
-                            setTimeout(() => {
-                                const top = linkData.linked[0];
-                                const deviceLabel = top.deviceType || 'device';
-                                const nameMatch = top.signals.includes('name') ? ' (same name)' : '';
-                                window.sal.onCrossDeviceLink(top, linkData.linked.length);
-                            }, 3000);
-                        }
-                    } else {
-                        console.log('✓ No cross-device links found (yet)');
+                    }
+
+                    // Tell Sal about the server-side verdict
+                    if (window.sal) {
+                        setTimeout(() => window.sal.onServerIdentity(idData), 3000);
                     }
                 } catch (e) {
-                    console.warn('Cross-device linking failed:', e.message);
+                    console.warn('Server identity loop failed:', e.message);
                 }
             } else {
                 graphBadge.textContent = 'Local Only';
