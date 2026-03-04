@@ -629,6 +629,8 @@
             justify-content: center;
             padding: 20px;
             backdrop-filter: blur(10px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         .consent-overlay.hidden { display: none; }
         .consent-card {
@@ -639,6 +641,7 @@
             max-width: 560px;
             width: 100%;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            margin: auto;
         }
         .consent-card h2 {
             font-size: 1.5rem;
@@ -707,6 +710,49 @@
         .consent-detail p {
             font-size: 0.8rem;
             margin-bottom: 8px;
+        }
+        /* Mobile consent responsive */
+        @media (max-width: 480px) {
+            .consent-overlay {
+                padding: 12px;
+                align-items: flex-start;
+            }
+            .consent-card {
+                padding: 24px 20px;
+                border-radius: 12px;
+                margin: 8px 0;
+            }
+            .consent-card h2 {
+                font-size: 1.2rem;
+                margin-bottom: 12px;
+            }
+            .consent-card p {
+                font-size: 0.82rem;
+                line-height: 1.6;
+                margin-bottom: 10px;
+            }
+            .consent-card ul {
+                font-size: 0.78rem;
+                line-height: 1.6;
+                margin: 0 0 12px 16px;
+            }
+            .consent-card ul li { margin-bottom: 2px; }
+            .consent-actions {
+                flex-direction: column;
+                gap: 10px;
+                margin-top: 16px;
+            }
+            .consent-actions button {
+                padding: 14px 16px;
+                font-size: 0.9rem;
+                min-height: 48px;
+            }
+            .consent-detail summary {
+                font-size: 0.75rem;
+            }
+            .consent-detail p {
+                font-size: 0.72rem;
+            }
         }
         .consent-withdraw {
             display: inline-block;
