@@ -269,20 +269,66 @@
 
         /* Graph Preview */
         .graph-preview {
-            padding: 20px;
-            background: var(--surface-2);
+            padding: 0;
+            background: #050810;
             border-radius: 8px;
             margin: 16px 0;
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            line-height: 1.8;
-            color: var(--text-dim);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
         .graph-preview .node { color: var(--braille); }
         .graph-preview .rel { color: var(--accent); }
         .graph-preview .prop { color: var(--warning); }
+
+        /* Identity Field SVG */
+        #identity-field-wrap {
+            width: 100%;
+            aspect-ratio: 3 / 2;
+            position: relative;
+            cursor: default;
+        }
+        #identity-field-wrap svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #field-loading {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: rgba(0,255,231,0.5); font-size: 10px; letter-spacing: 3px;
+            font-family: var(--font-mono);
+        }
+        #field-loading.hidden { display: none; }
+        #field-stats {
+            position: absolute; top: 8px; right: 10px;
+            color: rgba(0,255,231,0.5); font-size: 9px; letter-spacing: 1.5px;
+            font-family: var(--font-mono); line-height: 1.8; text-align: right;
+        }
+        #field-legend {
+            position: absolute; bottom: 6px; left: 10px;
+            display: flex; gap: 10px; flex-wrap: wrap;
+        }
+        .fl-item {
+            display: flex; align-items: center; gap: 4px;
+            color: rgba(255,255,255,0.45); font-size: 8px; letter-spacing: 1px;
+            font-family: var(--font-mono);
+        }
+        .fl-dot { width: 7px; height: 7px; border-radius: 50%; }
+        #field-tooltip {
+            position: absolute; top: 0; left: 0; pointer-events: none;
+            background: rgba(5,8,16,0.94); border: 1px solid #00ffe7;
+            border-radius: 4px; padding: 10px 14px; color: #00ffe7;
+            font-size: 10px; line-height: 1.7; font-family: var(--font-mono);
+            box-shadow: 0 0 20px rgba(0,255,231,0.15);
+            display: none; max-width: 280px; z-index: 50;
+        }
+        #field-tooltip .ftt-label { font-size: 8px; letter-spacing: 2px; opacity: 0.5; }
+        #field-tooltip .ftt-id { font-size: 11px; font-weight: bold; letter-spacing: 1px;
+            margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #field-tooltip .ftt-row { display: flex; justify-content: space-between; gap: 8px; }
+        #field-tooltip .ftt-key { opacity: 0.5; }
+        #field-tooltip .ftt-val { text-align: right; }
 
         /* Challenge Section */
         .challenge-section {
@@ -579,10 +625,63 @@
                 <span class="card-badge badge-graph">Neo4j</span>
             </div>
             <div class="graph-preview" id="graph-preview">
-                <span class="node">(:Visitor)</span><span class="rel">-[:HAS_DEVICE]-></span><span class="node">(:Device)</span><br>
-                <span class="node">(:Device)</span><span class="rel">-[:HAS_FINGERPRINT]-></span><span class="node">(:Fingerprint)</span><br>
-                <span class="node">(:Visitor)</span><span class="rel">-[:SESSION {</span><span class="prop">ts, duration</span><span class="rel">}]-></span><span class="node">(:Visit)</span><br>
-                <span style="color: var(--text-dim);">// Loading your graph data...</span>
+                <div id="identity-field-wrap">
+                    <svg id="identity-field" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <filter id="if-glow-cyan" x="-60%" y="-60%" width="220%" height="220%">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b1"/>
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b2"/>
+                                <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <filter id="if-glow-magenta" x="-60%" y="-60%" width="220%" height="220%">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b1"/>
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b2"/>
+                                <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <filter id="if-glow-gold" x="-60%" y="-60%" width="220%" height="220%">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b1"/>
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b2"/>
+                                <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <filter id="if-glow-green" x="-60%" y="-60%" width="220%" height="220%">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b1"/>
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b2"/>
+                                <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <filter id="if-glow-soft" x="-40%" y="-40%" width="180%" height="180%">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b"/>
+                                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <filter id="if-blur-edge" x="-10%" y="-10%" width="120%" height="120%">
+                                <feGaussianBlur in="SourceGraphic" stdDeviation="1"/>
+                            </filter>
+                            <radialGradient id="if-grad-gravity" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#00ffe7" stop-opacity="0.08"/>
+                                <stop offset="100%" stop-color="#00ffe7" stop-opacity="0"/>
+                            </radialGradient>
+                        </defs>
+                        <rect width="900" height="600" fill="#050810"/>
+                        <g id="if-grid" opacity="0.03" stroke="#00ffe7" stroke-width="0.5"></g>
+                        <g id="if-field-lines"></g>
+                        <g id="if-edges"></g>
+                        <g id="if-halos" opacity="0"></g>
+                        <g id="if-nodes"></g>
+                    </svg>
+                    <div id="field-loading">LOADING IDENTITY FIELD...</div>
+                    <div id="field-stats"></div>
+                    <div id="field-legend">
+                        <div class="fl-item"><div class="fl-dot" style="background:#00ffe7"></div>VISITOR</div>
+                        <div class="fl-item"><div class="fl-dot" style="background:#cc44ff"></div>DEVICE</div>
+                        <div class="fl-item"><div class="fl-dot" style="background:#ffcc00"></div>FINGERPRINT</div>
+                        <div class="fl-item"><div class="fl-dot" style="background:#44ff88"></div>SESSION</div>
+                        <div class="fl-item"><div class="fl-dot" style="background:#ff6644"></div>BEHAVIOR</div>
+                    </div>
+                    <div id="field-tooltip">
+                        <div class="ftt-label"></div>
+                        <div class="ftt-id"></div>
+                        <div id="ftt-props"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -594,7 +693,6 @@
                 <button class="btn btn-braille" id="btn-reset" title="Reset your BBID on this device">Reset My BBID</button>
                 <button class="btn btn-primary" id="btn-export" title="Download your identity graph as JSON">Export Graph JSON</button>
                 <button class="btn btn-outline" id="btn-haptic" title="Feel your fingerprint as braille vibrations">Feel My Fingerprint</button>
-                <a href="graph.html" class="btn btn-outline" style="text-decoration:none;display:inline-block" title="View the live identity field visualization">🔗 Identity Field</a>
             </div>
         </div>
 
@@ -1100,6 +1198,344 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Identity Field Visualization Engine
+    // ═══════════════════════════════════════════════════════════════════════
+    class IdentityFieldEngine {
+        constructor(workerUrl) {
+            this.url = workerUrl;
+            this.SVG_NS = 'http://www.w3.org/2000/svg';
+            this.W = 900; this.H = 600;
+            this.CX = 450; this.CY = 300;
+            this.nodes = []; this.edges = []; this.fieldLinePaths = [];
+            this.dragging = null; this.dragOff = {x:0,y:0};
+            this.renderTick = 0; this.simPhase = 'explode'; this.simTick = 0;
+            this.animFrame = null;
+
+            this.TYPE_CFG = {
+                Visitor:     {color:'cyan',   r:22,mass:26,glow:'if-glow-cyan'},
+                Device:      {color:'magenta',r:17,mass:18,glow:'if-glow-magenta'},
+                Fingerprint: {color:'gold',   r:14,mass:13,glow:'if-glow-gold'},
+                Session:     {color:'green',  r:10,mass:7, glow:'if-glow-green'},
+                Behavior:    {color:'red',    r:7, mass:4, glow:'if-glow-soft'}
+            };
+
+            this.svg = document.getElementById('identity-field');
+            this.nodesG = document.getElementById('if-nodes');
+            this.edgesG = document.getElementById('if-edges');
+            this.halosG = document.getElementById('if-halos');
+            this.fieldG = document.getElementById('if-field-lines');
+            this.tooltip = document.getElementById('field-tooltip');
+            this.loadingEl = document.getElementById('field-loading');
+            this.statsEl = document.getElementById('field-stats');
+
+            // Build grid
+            const grid = document.getElementById('if-grid');
+            for (let x=100;x<this.W;x+=100) grid.appendChild(this._svg('line',{x1:x,y1:0,x2:x,y2:this.H}));
+            for (let y=100;y<this.H;y+=100) grid.appendChild(this._svg('line',{x1:0,y1:y,x2:this.W,y2:y}));
+
+            // Mouse events
+            this.svg.addEventListener('mousemove', e => this._onMove(e));
+            this.svg.addEventListener('mouseup', () => this._onUp());
+            this.svg.addEventListener('mouseleave', () => this._onUp());
+
+            this.boot();
+        }
+
+        async boot() {
+            try {
+                const data = await this._fetch();
+                this._build(data);
+                this.loadingEl.classList.add('hidden');
+                this._loop();
+            } catch(e) {
+                this.loadingEl.textContent = 'FIELD UNAVAILABLE';
+                console.warn('Identity Field:', e.message);
+            }
+        }
+
+        async refresh() {
+            try {
+                const data = await this._fetch();
+                if (data.nodes.length === this.nodes.length) return;
+                if (this.animFrame) cancelAnimationFrame(this.animFrame);
+                this.nodes = []; this.edges = []; this.fieldLinePaths = [];
+                this.nodesG.innerHTML = ''; this.edgesG.innerHTML = '';
+                this.halosG.innerHTML = ''; this.fieldG.innerHTML = '';
+                this.simPhase = 'explode'; this.simTick = 0;
+                this._build(data);
+                this._loop();
+            } catch(e) { console.warn('Field refresh:', e.message); }
+        }
+
+        async _fetch() {
+            const r = await fetch(this.url + '/graph');
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        }
+
+        _build(data) {
+            const nodeMap = new Map();
+            const W = this.W, H = this.H, CX = this.CX, CY = this.CY;
+
+            data.nodes.forEach(n => {
+                if (nodeMap.has(n.id)) return;
+                const cfg = this.TYPE_CFG[n.label] || this.TYPE_CFG.Session;
+                const conns = data.relationships.filter(r => r.from===n.id||r.to===n.id).length;
+                const s = 1 + Math.min(conns,8)*0.07;
+                const idx = this.nodes.length;
+                nodeMap.set(n.id, idx);
+                this.nodes.push({
+                    idx, id:n.id, label:n.label, props:n.properties,
+                    x:CX+(Math.random()-.5)*20, y:CY+(Math.random()-.5)*20,
+                    vx:(Math.random()-.5)*2, vy:(Math.random()-.5)*2,
+                    r:cfg.r*s, mass:cfg.mass*s, color:cfg.color, glow:cfg.glow,
+                    conns:[], targetX:0, targetY:0
+                });
+            });
+
+            data.relationships.forEach(r => {
+                const fi = nodeMap.get(r.from), ti = nodeMap.get(r.to);
+                if (fi===undefined||ti===undefined) return;
+                const k = Math.min(fi,ti)+'-'+Math.max(fi,ti)+'-'+r.type;
+                if (this.edges.find(e=>e.key===k)) return;
+                const w = {HAS_DEVICE:.9,HAS_FINGERPRINT:.8,SESSION:.6,FROM_DEVICE:.5,HAS_BEHAVIOR:.3}[r.type]||.4;
+                this.edges.push({from:fi,to:ti,type:r.type,w,key:k});
+                this.nodes[fi].conns.push(ti);
+                this.nodes[ti].conns.push(fi);
+            });
+
+            // Cluster layout per visitor
+            const visitors = this.nodes.filter(n=>n.label==='Visitor');
+            const ca = (2*Math.PI)/Math.max(visitors.length,1);
+            visitors.forEach((v,vi) => {
+                const ba = vi*ca - Math.PI/2;
+                const cx = CX + (visitors.length>1?160:0)*Math.cos(ba);
+                const cy = CY + (visitors.length>1?120:0)*Math.sin(ba);
+                v.targetX=cx; v.targetY=cy;
+                const cluster = this._bfs(v.idx);
+                const golden = 2.399963;
+                cluster.forEach((ci,j) => {
+                    const nd = this.nodes[ci];
+                    if (nd.targetX) return;
+                    const rr = 50+j*18;
+                    const a = ba+(j+1)*golden*0.4;
+                    nd.targetX = cx+rr*Math.cos(a);
+                    nd.targetY = cy+rr*Math.sin(a)*0.8;
+                });
+            });
+            this.nodes.forEach(n => { if(!n.targetX){n.targetX=CX+(Math.random()-.5)*300;n.targetY=CY+(Math.random()-.5)*200;} });
+
+            this._buildSVG();
+            this._updateStats();
+        }
+
+        _bfs(start) {
+            const visited = new Set([start]), q = [start], result = [];
+            while(q.length) { const c=q.shift(); for(const n of this.nodes[c].conns) if(!visited.has(n)){visited.add(n);result.push(n);q.push(n);} }
+            return result;
+        }
+
+        _buildSVG() {
+            const NS = this.SVG_NS;
+            // Edges
+            this.edges.forEach((e,i) => {
+                const p = this._svg('path',{id:'ife-'+i,fill:'none',stroke:this._edgeCol(e),'stroke-width':.5+e.w*2,opacity:.2+e.w*.3,filter:'url(#if-blur-edge)'});
+                this.edgesG.appendChild(p);
+                const pulse = this._svg('path',{id:'ifep-'+i,fill:'none',stroke:this._edgeCol(e),'stroke-width':.3+e.w*1.2,opacity:0,'stroke-dasharray':'3 16'});
+                this.edgesG.appendChild(pulse);
+                const lbl = this._svg('text',{id:'ifel-'+i,'text-anchor':'middle',fill:'rgba(255,255,255,0.15)','font-size':'6','letter-spacing':'1','pointer-events':'none','font-family':"'Courier New',monospace"});
+                lbl.textContent = e.type;
+                this.edgesG.appendChild(lbl);
+            });
+            // Halos
+            this.nodes.forEach((n,i) => {
+                this.halosG.appendChild(this._svg('circle',{id:'ifh-'+i,cx:n.x,cy:n.y,r:n.mass*5,fill:'url(#if-grad-gravity)',opacity:0,'pointer-events':'none'}));
+            });
+            // Nodes
+            this.nodes.forEach((n,i) => {
+                const g = this._svg('g',{id:'ifng-'+i,transform:`translate(${n.x},${n.y})`,cursor:'grab'});
+                g.appendChild(this._svg('circle',{r:n.r+5,fill:'none',stroke:this._col(n.color,.2),'stroke-width':'1.2',filter:`url(#${n.glow})`,id:'ifr-'+i}));
+                g.appendChild(this._svg('circle',{r:n.r+12+n.mass*.4,fill:'none',stroke:this._col(n.color,.05),'stroke-width':'1','stroke-dasharray':'2 5'}));
+                g.appendChild(this._svg('circle',{r:n.r,fill:this._col(n.color,.12),stroke:this._col(n.color,.85),'stroke-width':'1.2',filter:`url(#${n.glow})`}));
+                const icon = this._svg('text',{x:0,y:3,'text-anchor':'middle',fill:this._col(n.color,.9),'font-size':Math.max(7,n.r*.5),'pointer-events':'none','font-family':"'Courier New',monospace",'font-weight':'bold'});
+                icon.textContent = {Visitor:'V',Device:'D',Fingerprint:'F',Session:'S',Behavior:'B'}[n.label]||'?';
+                g.appendChild(icon);
+                const lbl = this._svg('text',{x:0,y:n.r+12,'text-anchor':'middle',fill:this._col(n.color,.6),'font-size':Math.max(6,5+n.mass*.06),'letter-spacing':'1','pointer-events':'none',filter:'url(#if-glow-soft)','font-family':"'Courier New',monospace"});
+                lbl.textContent = this._shortLabel(n);
+                g.appendChild(lbl);
+                g.addEventListener('mouseenter',()=>this._hover(i,true));
+                g.addEventListener('mouseleave',()=>this._hover(i,false));
+                g.addEventListener('mousedown',ev=>this._dragStart(ev,i));
+                this.nodesG.appendChild(g);
+            });
+            // Field lines
+            for(let k=0;k<18;k++){
+                const p=this._svg('path',{fill:'none',stroke:'#00ffe7','stroke-width':'.4',opacity:'.06','pointer-events':'none'});
+                this.fieldG.appendChild(p);
+                this.fieldLinePaths.push(p);
+            }
+        }
+
+        _updateStats() {
+            const v=this.nodes.filter(n=>n.label==='Visitor').length;
+            const d=this.nodes.filter(n=>n.label==='Device').length;
+            const s=this.nodes.filter(n=>n.label==='Session').length;
+            this.statsEl.innerHTML=`${v} VISITOR${v!==1?'S':''} · ${d} DEVICE${d!==1?'S':''} · ${s} SESS`;
+        }
+
+        // Physics
+        _physics() {
+            const N=this.nodes.length; if(!N) return;
+            const G=.12, KR=2500, KS=.012, DAMP=.76, DT=.85, SOFT=500, RL=120;
+            const F=this.nodes.map(()=>({fx:0,fy:0}));
+            for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
+                const dx=this.nodes[j].x-this.nodes[i].x, dy=this.nodes[j].y-this.nodes[i].y;
+                const d2=dx*dx+dy*dy+SOFT, d=Math.sqrt(d2);
+                const fg=G*this.nodes[i].mass*this.nodes[j].mass/d2, fr=KR/d2;
+                const fn=fg-fr, ux=dx/d, uy=dy/d;
+                F[i].fx+=fn*ux; F[i].fy+=fn*uy; F[j].fx-=fn*ux; F[j].fy-=fn*uy;
+            }
+            this.edges.forEach(e=>{
+                const a=this.nodes[e.from],b=this.nodes[e.to];
+                const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)+1e-6;
+                const fs=KS*(d-RL/(e.w+.2))*e.w;
+                F[e.from].fx+=fs*dx/d; F[e.from].fy+=fs*dy/d;
+                F[e.to].fx-=fs*dx/d; F[e.to].fy-=fs*dy/d;
+            });
+            if(this.simPhase==='explode') this.nodes.forEach((n,i)=>{F[i].fx+=(n.targetX-n.x)*.05;F[i].fy+=(n.targetY-n.y)*.05;});
+            const m=40, W=this.W, H=this.H;
+            this.nodes.forEach((n,i)=>{
+                if(n.x<m)F[i].fx+=(m-n.x)*.3; if(n.x>W-m)F[i].fx-=(n.x-(W-m))*.3;
+                if(n.y<m)F[i].fy+=(m-n.y)*.3; if(n.y>H-m)F[i].fy-=(n.y-(H-m))*.3;
+            });
+            this.nodes.forEach((n,i)=>{
+                if(this.dragging===i) return;
+                n.vx=(n.vx+F[i].fx*DT)*DAMP; n.vy=(n.vy+F[i].fy*DT)*DAMP;
+                n.x+=n.vx; n.y+=n.vy;
+            });
+        }
+
+        _curvature(x,y) {
+            let k=0; for(const n of this.nodes){const dx=x-n.x,dy=y-n.y;k+=n.mass/(dx*dx+dy*dy+500);} return k;
+        }
+
+        _updateFieldLines() {
+            const nl=this.fieldLinePaths.length, steps=50, ss=6;
+            for(let k=0;k<nl;k++){
+                const a=(k/nl)*Math.PI*2, sr=280;
+                let x=this.CX+sr*Math.cos(a), y=this.CY+sr*Math.sin(a)*.8;
+                let pts=[[x,y]];
+                for(let s=0;s<steps;s++){
+                    const k0=this._curvature(x,y);
+                    const kx=(this._curvature(x+2,y)-k0)/2, ky=(this._curvature(x,y+2)-k0)/2;
+                    const len=Math.sqrt(kx*kx+ky*ky)+1e-6;
+                    x+=(-ky/len)*ss; y+=(kx/len)*ss;
+                    if(x<-40||x>this.W+40||y<-40||y>this.H+40) break;
+                    pts.push([x,y]);
+                }
+                this.fieldLinePaths[k].setAttribute('d',this._ptsBez(pts));
+            }
+        }
+
+        _render() {
+            this.renderTick++;
+            this.nodes.forEach((n,i)=>{
+                const g=document.getElementById('ifng-'+i);
+                if(g) g.setAttribute('transform',`translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
+                const h=document.getElementById('ifh-'+i);
+                if(h){h.setAttribute('cx',n.x.toFixed(1));h.setAttribute('cy',n.y.toFixed(1));}
+            });
+            this.edges.forEach((e,i)=>{
+                const a=this.nodes[e.from],b=this.nodes[e.to],d=this._elasticEdge(a,b,e.w);
+                const ep=document.getElementById('ife-'+i); if(ep) ep.setAttribute('d',d);
+                const pulse=document.getElementById('ifep-'+i);
+                if(pulse){pulse.setAttribute('d',d);pulse.setAttribute('opacity',(.1+.18*Math.sin(this.renderTick*.03+i*.7)).toFixed(3));pulse.setAttribute('stroke-dashoffset',((this.renderTick*.4)%20).toFixed(1));}
+                const lbl=document.getElementById('ifel-'+i);
+                if(lbl){lbl.setAttribute('x',((a.x+b.x)/2).toFixed(1));lbl.setAttribute('y',((a.y+b.y)/2-3).toFixed(1));}
+            });
+            if(this.renderTick%5===0) this._updateFieldLines();
+            this.simTick++;
+            if(this.simPhase==='explode'&&this.simTick>180) this.simPhase='settle';
+            if(this.simPhase==='settle'&&this.simTick>400) this.simPhase='idle';
+        }
+
+        _loop() {
+            this._physics(); this._render();
+            this.animFrame = requestAnimationFrame(()=>this._loop());
+        }
+
+        // Interaction
+        _hover(i,enter) {
+            this.halosG.setAttribute('opacity',enter?'1':'0');
+            const h=document.getElementById('ifh-'+i); if(h) h.setAttribute('opacity',enter?'.7':'0');
+            const r=document.getElementById('ifr-'+i); if(r) r.setAttribute('opacity',enter?'1':'.4');
+            if(enter) this._showTip(i); else this.tooltip.style.display='none';
+        }
+        _showTip(i) {
+            const n=this.nodes[i];
+            this.tooltip.querySelector('.ftt-label').textContent=n.label.toUpperCase();
+            this.tooltip.querySelector('.ftt-id').textContent=n.id;
+            this.tooltip.style.color=this._col(n.color,1);
+            this.tooltip.style.borderColor=this._col(n.color,.6);
+            const pd=document.getElementById('ftt-props'); pd.innerHTML='';
+            for(const[k,v] of Object.entries(n.props||{})){
+                if(k==='id') continue;
+                const val=typeof v==='string'&&v.length>25?v.slice(0,23)+'…':v;
+                const row=document.createElement('div'); row.className='ftt-row';
+                row.innerHTML=`<span class="ftt-key">${k}</span><span class="ftt-val">${val}</span>`;
+                pd.appendChild(row);
+            }
+            const rect=this.svg.getBoundingClientRect();
+            const sx=rect.width/this.W, sy=rect.height/this.H;
+            const wrap=document.getElementById('identity-field-wrap').getBoundingClientRect();
+            const tx=n.x*sx+15, ty=n.y*sy-30;
+            this.tooltip.style.left=Math.min(tx,wrap.width-290)+'px';
+            this.tooltip.style.top=Math.max(ty,8)+'px';
+            this.tooltip.style.display='block';
+        }
+        _dragStart(ev,i) {
+            ev.preventDefault(); this.dragging=i;
+            const pt=this._svgPt(ev);
+            this.dragOff={x:pt.x-this.nodes[i].x,y:pt.y-this.nodes[i].y};
+            this.nodes[i].vx=0; this.nodes[i].vy=0;
+        }
+        _onMove(ev) {
+            if(this.dragging===null) return;
+            const pt=this._svgPt(ev);
+            this.nodes[this.dragging].x=pt.x-this.dragOff.x;
+            this.nodes[this.dragging].y=pt.y-this.dragOff.y;
+            this.nodes[this.dragging].vx=0; this.nodes[this.dragging].vy=0;
+        }
+        _onUp() { if(this.dragging!==null){this.nodes[this.dragging].vx=0;this.nodes[this.dragging].vy=0;this.dragging=null;} }
+
+        // Helpers
+        _col(c,a) { return {cyan:`rgba(0,255,231,${a})`,magenta:`rgba(204,68,255,${a})`,gold:`rgba(255,204,0,${a})`,green:`rgba(68,255,136,${a})`,red:`rgba(255,102,68,${a})`}[c]||`rgba(255,255,255,${a})`; }
+        _edgeCol(e) { return {HAS_DEVICE:this._col('cyan',.5),HAS_FINGERPRINT:this._col('gold',.5),SESSION:this._col('green',.4),FROM_DEVICE:this._col('magenta',.35),HAS_BEHAVIOR:'rgba(255,102,68,.25)'}[e.type]||'rgba(120,200,255,.3)'; }
+        _shortLabel(n) {
+            if(n.label==='Visitor') return n.id.replace('visitor_','').slice(0,8).toUpperCase();
+            if(n.label==='Device'){const p=n.props;return [p.type,p.os,p.browser].filter(Boolean).join('·').toUpperCase()||n.id.slice(0,10);}
+            if(n.label==='Fingerprint') return 'FP '+((n.props.sha256||n.id).slice(0,8));
+            if(n.label==='Session') return 'S:'+n.id.replace('sess_','').slice(0,5);
+            if(n.label==='Behavior') return 'BEH';
+            return n.id.slice(0,8);
+        }
+        _elasticEdge(a,b,w) {
+            const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,k=this._curvature(mx,my);
+            const bend=Math.min(k*1000,40)*(1-w);
+            const dx=b.x-a.x,dy=b.y-a.y,len=Math.sqrt(dx*dx+dy*dy)+1e-6;
+            return `M ${a.x.toFixed(1)},${a.y.toFixed(1)} Q ${(mx-dy/len*bend).toFixed(1)},${(my+dx/len*bend).toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+        }
+        _ptsBez(pts) {
+            if(pts.length<2) return '';
+            let d=`M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+            for(let i=1;i<pts.length-1;i++){const mx=(pts[i][0]+pts[i+1][0])/2,my=(pts[i][1]+pts[i+1][1])/2;d+=` Q ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)} ${mx.toFixed(1)},${my.toFixed(1)}`;}
+            const l=pts[pts.length-1]; d+=` L ${l[0].toFixed(1)},${l[1].toFixed(1)}`; return d;
+        }
+        _svg(tag,attrs) { const el=document.createElementNS(this.SVG_NS,tag); for(const[k,v] of Object.entries(attrs)) el.setAttribute(k,v); return el; }
+        _svgPt(ev) { const pt=this.svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; return pt.matrixTransform(this.svg.getScreenCTM().inverse()); }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // App Controller
     // ═══════════════════════════════════════════════════════════════════════
     (async function main() {
@@ -1173,21 +1609,8 @@
             `<div class="fp-item"><div class="fp-label">${label}</div><div class="fp-value">${value}</div></div>`
         ).join('');
 
-        // Update graph preview with actual data
+        // Build graph payload
         const graphPayload = fp.toGraphPayload(sessionId, visitorId);
-        const graphEl = document.getElementById('graph-preview');
-        graphEl.innerHTML =
-            `<span class="node">(:Visitor {id: "${visitorId}"})</span>\n` +
-            `  <span class="rel">-[:HAS_DEVICE]-></span>\n` +
-            `  <span class="node">(:Device {type: "${fp.getDeviceType()}", os: "${fp.getOS()}", browser: "${fp.getBrowser()}"})</span>\n\n` +
-            `<span class="node">(:Device)</span>\n` +
-            `  <span class="rel">-[:HAS_FINGERPRINT]-></span>\n` +
-            `  <span class="node">(:Fingerprint {sha256: "${fp.rawHash.substring(0, 20)}..."})</span>\n\n` +
-            `<span class="node">(:Visitor)</span>\n` +
-            `  <span class="rel">-[:SESSION {</span><span class="prop">visit: ${visitNum}</span><span class="rel">}]-></span>\n` +
-            `  <span class="node">(:Session {id: "${sessionId}"})</span>\n\n` +
-            `<span style="color: var(--text-dim);">// ${graphPayload.nodes.length} nodes, ${graphPayload.relationships.length} relationships</span>\n` +
-            `<span style="color: var(--text-dim);">// BBES: ${fp.brailleHash.substring(0, 32)}...</span>`;
 
         // ── Graph Ingestion ──
         const graph = new GraphIngest(WORKER_URL);
@@ -1199,13 +1622,20 @@
                 graphBadge.textContent = 'Synced';
                 graphBadge.className = 'card-badge badge-live';
                 console.log('✓ Graph ingested:', result.nodesCreated, 'nodes,', result.relationshipsCreated, 'rels');
+                // Refresh the Identity Field visualization with new data
+                if (window.identityField) window.identityField.refresh();
             } else {
                 graphBadge.textContent = 'Local Only';
                 graphBadge.style.background = 'rgba(255,82,82,0.15)';
                 graphBadge.style.color = 'var(--danger)';
                 console.warn('Graph ingest:', graph.error || 'no response');
+                // Still boot the field with whatever is in AuraDB
+                if (window.identityField) window.identityField.refresh();
             }
         });
+
+        // ── Identity Field Visualization Engine ──
+        window.identityField = new IdentityFieldEngine(WORKER_URL);
 
         // Send final behavior snapshot when leaving the page
         window.addEventListener('visibilitychange', () => {
