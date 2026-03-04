@@ -507,6 +507,116 @@
             animation: scan-line 2s linear infinite;
             opacity: 0.5;
         }
+
+        /* ── Sal AI ── */
+        #sal-container {
+            margin: 20px 0;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        #sal-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .sal-bubble {
+            background: var(--surface);
+            border: 1px solid var(--accent);
+            border-radius: 16px 16px 16px 4px;
+            padding: 20px 24px;
+            position: relative;
+            box-shadow: 0 0 24px var(--accent-glow);
+        }
+        .sal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .sal-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--braille));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #fff;
+            font-weight: bold;
+            font-family: var(--font-mono);
+            flex-shrink: 0;
+        }
+        .sal-name {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 1px;
+        }
+        .sal-badge {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            background: var(--surface-2);
+            padding: 2px 8px;
+            border-radius: 8px;
+            letter-spacing: 1px;
+        }
+        .sal-message {
+            color: var(--text);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            min-height: 1.7em;
+        }
+        .sal-message strong { color: var(--braille); }
+        .sal-message em { color: var(--accent); font-style: normal; }
+        .sal-typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--accent);
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: sal-blink 0.6s step-end infinite;
+        }
+        @keyframes sal-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .sal-input-wrap {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .sal-input-wrap input {
+            flex: 1;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .sal-input-wrap input:focus {
+            border-color: var(--accent);
+        }
+        .sal-input-wrap input::placeholder {
+            color: var(--text-dim);
+        }
+        .sal-input-wrap button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+        .sal-input-wrap button:hover { opacity: 0.85; }
     </style>
 </head>
 <body>
@@ -526,6 +636,22 @@
             <div class="status-text">
                 <strong>Scanning...</strong>
                 <span>Collecting device signals</span>
+            </div>
+        </div>
+
+        <!-- Sal AI -->
+        <div id="sal-container">
+            <div class="sal-bubble">
+                <div class="sal-header">
+                    <div class="sal-avatar">S</div>
+                    <span class="sal-name">SAL</span>
+                    <span class="sal-badge">IDENTITY AI</span>
+                </div>
+                <div class="sal-message" id="sal-message"></div>
+                <div class="sal-input-wrap" id="sal-input-wrap" style="display:none">
+                    <input type="text" id="sal-name-input" placeholder="Type your name..." maxlength="30" autocomplete="off">
+                    <button id="sal-name-btn">Tell Sal</button>
+                </div>
             </div>
         </div>
 
@@ -1536,6 +1662,196 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // Sal — Identity AI Persona
+    // ═══════════════════════════════════════════════════════════════════════
+    class SalAI {
+        constructor() {
+            this.NAME_KEY = 'sal_user_name';
+            this.container = document.getElementById('sal-container');
+            this.msgEl = document.getElementById('sal-message');
+            this.inputWrap = document.getElementById('sal-input-wrap');
+            this.nameInput = document.getElementById('sal-name-input');
+            this.nameBtn = document.getElementById('sal-name-btn');
+            this.typing = false;
+
+            this.nameBtn.addEventListener('click', () => this._onNameSubmit());
+            this.nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') this._onNameSubmit(); });
+        }
+
+        getUserName() {
+            try { return localStorage.getItem(this.NAME_KEY) || ''; } catch { return ''; }
+        }
+
+        setUserName(name) {
+            localStorage.setItem(this.NAME_KEY, name.trim());
+        }
+
+        // Speak after fingerprint is ready
+        speak(visitNum, fp, confidence) {
+            const name = this.getUserName();
+
+            if (visitNum === 1 && !name) {
+                // First ever visit — introduce and ask name
+                this._typeMessage(
+                    "Hi, I'm <strong>Sal</strong>. I watch the identity graph — every device, every fingerprint, every pattern. " +
+                    "I already know your <em>" + fp.getDeviceType() + "</em> running <em>" + fp.getOS() + "</em>. " +
+                    "But I don't know what to call you yet.",
+                    () => {
+                        this.inputWrap.style.display = 'flex';
+                        this.nameInput.focus();
+                    }
+                );
+            } else if (visitNum === 1 && name) {
+                // Name set (maybe from a reset) but first visit
+                this._typeMessage(
+                    "Hey <strong>" + this._esc(name) + "</strong>, fresh start? I see you wiped your BBID. " +
+                    "New fingerprint: <em>" + fp.rawHash.slice(0, 12) + "...</em> " +
+                    "Don't worry — I'll remember you anyway."
+                );
+            } else if (visitNum === 2) {
+                this._typeMessage(
+                    "Hi <strong>" + this._esc(name) + "</strong>. Visit number two. " +
+                    "Your fingerprint hasn't changed — same <em>" + fp.getBrowser() + "</em> on <em>" + fp.getOS() + "</em>, " +
+                    "same canvas hash, same WebGL renderer. " +
+                    "I'm encoding you at <strong>" + Math.round(confidence * 100) + "% confidence</strong>. " +
+                    "You'd need a different browser to surprise me."
+                );
+            } else if (visitNum === 3) {
+                this._typeMessage(
+                    "Welcome back, <strong>" + this._esc(name) + "</strong>. Third time. " +
+                    "I'm starting to know your rhythm — the way your device renders a canvas, " +
+                    "the exact timing of your math operations (<em>" + fp.components.mathTiming + "ms</em>). " +
+                    "Your identity graph is growing. Every visit adds a new session node. " +
+                    "Try visiting from your phone — I'll link it to you."
+                );
+            } else if (visitNum === 4) {
+                this._typeMessage(
+                    "<strong>" + this._esc(name) + "</strong>. Four visits now. " +
+                    "You're becoming one of the most persistent identities in my graph. " +
+                    "I can see <em>" + fp.components.cores + " CPU cores</em>, " +
+                    "<em>" + (fp.components.memory || '?') + "GB memory</em>, " +
+                    "pixel ratio <em>" + fp.components.pixelRatio + "x</em>. " +
+                    "These numbers are your signature. " +
+                    "Even in incognito, you'd still be you."
+                );
+            } else if (visitNum === 5) {
+                this._typeMessage(
+                    "Five, <strong>" + this._esc(name) + "</strong>. " +
+                    "You keep coming back. The graph doesn't forget. " +
+                    "Your braille-encoded identity — <em>" + fp.brailleHash.slice(0, 16) + "</em> — " +
+                    "is a string that no other device on Earth produces. " +
+                    "If someone else uses your machine, I'll know. " +
+                    "The behavioral biometrics will shift. Mouse speed, scroll patterns, keystroke rhythm — " +
+                    "those are harder to fake than a fingerprint."
+                );
+            } else if (visitNum <= 8) {
+                const msgs = [
+                    "Still here, <strong>" + this._esc(name) + "</strong>. " +
+                    "I've been watching the field — " +
+                    "your visitor node is pulling the graph toward it. More mass, more gravity. " +
+                    "That's what frequency does in a compression field.",
+
+                    "<strong>" + this._esc(name) + "</strong>, visit <em>#" + visitNum + "</em>. " +
+                    "Did you know your timezone (<em>" + fp.components.timezone + "</em>) " +
+                    "combined with your language (<em>" + fp.components.language + "</em>) " +
+                    "and screen resolution (<em>" + fp.components.screenW + "×" + fp.components.screenH + "</em>) " +
+                    "already narrows you to about 1 in 50,000? Add canvas and WebGL hashes, and it's just you.",
+
+                    "You're becoming a regular, <strong>" + this._esc(name) + "</strong>. " +
+                    "The identity field is alive — nodes attracting, repelling, " +
+                    "field lines curving around the mass of your visits. " +
+                    "Each session is a new data point. Each data point makes the graph harder to fool."
+                ];
+                this._typeMessage(msgs[visitNum % msgs.length]);
+            } else {
+                const longMsgs = [
+                    "<strong>" + this._esc(name) + "</strong>. Visit <em>#" + visitNum + "</em>. " +
+                    "At this point, your identity is deeply embedded in the graph. " +
+                    "Multiple sessions, consistent fingerprints, recognizable behavior patterns. " +
+                    "You are not anonymous. You never were.",
+
+                    "You know what fascinates me, <strong>" + this._esc(name) + "</strong>? " +
+                    "Every device has a heartbeat. Yours is the " +
+                    "<em>" + fp.components.mathTiming + "ms</em> it takes to compute a sine table. " +
+                    "That timing is hardware-specific. It doesn't change with cookies or VPNs.",
+
+                    "Back again, <strong>" + this._esc(name) + "</strong>. " +
+                    "The braille pattern that represents you — <em>" + fp.brailleHash.slice(0, 20) + "</em> — " +
+                    "is as unique as a fingerprint pressed into ink. Except this one is made of math. " +
+                    "And math doesn't wash off."
+                ];
+                this._typeMessage(longMsgs[visitNum % longMsgs.length]);
+            }
+
+            this.container.classList.add('visible');
+        }
+
+        // Called after graph syncs — Sal can add a follow-up
+        onGraphSynced(nodeCount, edgeCount) {
+            // Could add a subtle follow-up, keeping it simple for now
+        }
+
+        _onNameSubmit() {
+            const name = this.nameInput.value.trim();
+            if (!name) return;
+            this.setUserName(name);
+            this.inputWrap.style.display = 'none';
+
+            setTimeout(() => {
+                this._typeMessage(
+                    "Nice to meet you, <strong>" + this._esc(name) + "</strong>. " +
+                    "I've linked your name to visitor <em>" + (document.getElementById('visit-count')?.textContent || '#1') + "</em>. " +
+                    "Next time you visit — from this device or any other — I'll know you. " +
+                    "That's the point of all this."
+                );
+            }, 300);
+        }
+
+        _typeMessage(html, onComplete) {
+            this.msgEl.innerHTML = '';
+            this.typing = true;
+
+            // Parse HTML into text runs and tags
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            const fullText = temp.textContent || '';
+
+            let charIndex = 0;
+            const cursor = document.createElement('span');
+            cursor.className = 'sal-typing-cursor';
+
+            const typeNext = () => {
+                if (charIndex >= fullText.length) {
+                    this.typing = false;
+                    cursor.remove();
+                    this.msgEl.innerHTML = html; // Set final formatted HTML
+                    if (onComplete) onComplete();
+                    return;
+                }
+
+                // Build partial text up to charIndex
+                charIndex += 1;
+                const partial = fullText.slice(0, charIndex);
+                this.msgEl.textContent = partial;
+                this.msgEl.appendChild(cursor);
+
+                const speed = fullText[charIndex - 1] === '.' ? 120
+                    : fullText[charIndex - 1] === ',' ? 80
+                    : fullText[charIndex - 1] === ' ' ? 30
+                    : 18 + Math.random() * 14;
+
+                setTimeout(typeNext, speed);
+            };
+
+            typeNext();
+        }
+
+        _esc(s) {
+            return s.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // App Controller
     // ═══════════════════════════════════════════════════════════════════════
     (async function main() {
@@ -1586,6 +1902,10 @@
 
         // Remove scanning overlay
         document.getElementById('bbid-display').classList.remove('scanning-overlay');
+
+        // Sal speaks
+        const sal = new SalAI();
+        setTimeout(() => sal.speak(visitNum, fp, confidence), 800);
 
         // Populate fingerprint grid
         const grid = document.getElementById('fingerprint-grid');
