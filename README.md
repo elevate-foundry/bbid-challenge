@@ -115,6 +115,26 @@ node scripts/setup-auradb.mjs  # creates constraints, indexes, verifies connecti
 
 ## Part of the Braille Ecosystem
 
+### Why Braille?
+
+Every English text can be translated to braille, but not every braille text translates back to English. A German braille text uses cells that don't map to English. A music braille score uses cells that don't map to any spoken language. And BBES uses cells to encode raw binary — no natural language at all.
+
+8-dot braille (U+2800–U+28FF) provides 256 possible cells per character — isomorphic to a byte. This makes braille strictly more expressive than any individual writing system while being more compact: each cell packs 8 bits into a single Unicode character. A 32-byte SHA-256 hash becomes 32 braille characters.
+
+```
+8-dot Braille (2⁸ = 256 symbols per cell)
+  ├── BBES        — arbitrary binary data (fingerprints, hashes)
+  ├── English     — Grade 2 contracted braille
+  ├── German      — Deutsche Blindenschrift
+  ├── Music       — Braille Music Notation
+  ├── Math        — Nemeth Code
+  └── ...every other braille standard
+```
+
+Braille is the superset. Each language or domain standard is a proper subset. That's what makes it interesting as an encoding layer for identity data — it's a universal, compact, tactile-accessible binary representation.
+
+### Related Projects
+
 - [BrailleBuddy](https://braillebuddy.vercel.app/) — Interactive braille learning
 - [BrailleFST](https://github.com/elevate-foundry/braille) — Finite State Transducer for braille encoding
 - BBES Codec — Braille Binary Encoding Standard
