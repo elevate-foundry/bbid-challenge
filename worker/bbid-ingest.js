@@ -18,7 +18,9 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:8080',
   'http://127.0.0.1:3000',
-  'http://127.0.0.1:8080'
+  'http://127.0.0.1:8080',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173'
 ];
 
 function getCorsOrigin(request) {
@@ -39,7 +41,7 @@ function corsHeaders(request) {
 // Simple in-memory rate limiter (per-worker-isolate, resets on deploy)
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 30; // requests per window
+const RATE_LIMIT_MAX = 60; // requests per window
 
 function checkRateLimit(ip) {
   const now = Date.now();

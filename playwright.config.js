@@ -5,9 +5,10 @@ export default defineConfig({
   timeout: 60_000,
   retries: 1,
   webServer: {
-    command: 'npx serve . -l 4173 --no-clipboard',
-    port: 4173,
-    reuseExistingServer: !process.env.CI,
+    command: 'python3 -m http.server 4173',
+    url: 'http://localhost:4173',
+    reuseExistingServer: true,
+    timeout: 10_000,
   },
   use: {
     baseURL: 'http://localhost:4173',
