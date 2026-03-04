@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBID — Can We Identify You Without Logging In?</title>
+    <meta name="description" content="A behavioral biometrics experiment using braille-encoded device fingerprinting. No cookies, no login, no tracking pixels. Just math.">
+    <meta property="og:title" content="BBID Challenge — Try to Be Anonymous">
+    <meta property="og:description" content="We identify your device using braille-encoded behavioral biometrics. No cookies. No login. Try to fool us.">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⠃</text></svg>">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface-2: #1a1a2e;
+            --border: #2a2a3e;
+            --text: #e0e0e8;
+            --text-dim: #8888a0;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.3);
+            --braille: #00e5ff;
+            --braille-glow: rgba(0, 229, 255, 0.2);
+            --success: #00e676;
+            --warning: #ffab00;
+            --danger: #ff5252;
+            --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Braille background animation */
+        .braille-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            opacity: 0.03;
+            font-family: var(--font-mono);
+            font-size: 24px;
+            line-height: 1.5;
+            overflow: hidden;
+            z-index: 0;
+            color: var(--braille);
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 60px 0 40px;
+        }
+
+        .hero-braille {
+            font-size: 3rem;
+            color: var(--braille);
+            letter-spacing: 8px;
+            margin-bottom: 16px;
+            text-shadow: 0 0 30px var(--braille-glow);
+            font-family: var(--font-mono);
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--text), var(--braille));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Status Banner */
+        .status-banner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin: 30px 0;
+            transition: all 0.5s ease;
+        }
+
+        .status-banner.scanning {
+            border-color: var(--warning);
+            box-shadow: 0 0 20px rgba(255, 171, 0, 0.1);
+        }
+
+        .status-banner.identified {
+            border-color: var(--success);
+            box-shadow: 0 0 20px rgba(0, 230, 118, 0.1);
+        }
+
+        .status-banner.new-visitor {
+            border-color: var(--braille);
+            box-shadow: 0 0 20px var(--braille-glow);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--warning);
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        .status-banner.identified .status-dot { background: var(--success); animation: none; }
+        .status-banner.new-visitor .status-dot { background: var(--braille); animation: none; }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .status-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        .status-text strong { color: var(--text); }
+        .status-text span { color: var(--text-dim); }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+
+        .card:hover { border-color: var(--accent); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon { font-size: 1.2rem; }
+
+        .card-badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-live { background: rgba(0, 230, 118, 0.15); color: var(--success); }
+        .badge-braille { background: var(--braille-glow); color: var(--braille); }
+        .badge-graph { background: var(--accent-glow); color: var(--accent); }
+
+        /* Fingerprint Display */
+        .fingerprint-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .fp-item {
+            padding: 12px;
+            background: var(--surface-2);
+            border-radius: 8px;
+            border: 1px solid transparent;
+            transition: border-color 0.3s;
+        }
+
+        .fp-item:hover { border-color: var(--border); }
+
+        .fp-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .fp-value {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        /* BBID Braille Display */
+        .bbid-display {
+            text-align: center;
+            padding: 30px;
+            background: var(--surface-2);
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+
+        .bbid-braille {
+            font-size: 2rem;
+            color: var(--braille);
+            font-family: var(--font-mono);
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px var(--braille-glow);
+            word-break: break-all;
+            line-height: 1.6;
+        }
+
+        .bbid-hash {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 12px;
+            word-break: break-all;
+        }
+
+        /* Behavior Tracker */
+        .behavior-list {
+            list-style: none;
+        }
+
+        .behavior-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem;
+            font-family: var(--font-mono);
+        }
+
+        .behavior-item:last-child { border-bottom: none; }
+
+        .behavior-icon { font-size: 1rem; width: 24px; text-align: center; }
+        .behavior-label { color: var(--text-dim); flex: 1; }
+        .behavior-value { color: var(--text); text-align: right; }
+
+        /* Graph Preview */
+        .graph-preview {
+            padding: 20px;
+            background: var(--surface-2);
+            border-radius: 8px;
+            margin: 16px 0;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            line-height: 1.8;
+            color: var(--text-dim);
+            overflow-x: auto;
+        }
+
+        .graph-preview .node { color: var(--braille); }
+        .graph-preview .rel { color: var(--accent); }
+        .graph-preview .prop { color: var(--warning); }
+
+        /* Challenge Section */
+        .challenge-section {
+            text-align: center;
+            padding: 40px 20px;
+            margin: 20px 0;
+            background: linear-gradient(135deg, var(--surface), var(--surface-2));
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .challenge-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+
+        .challenge-section p {
+            color: var(--text-dim);
+            margin-bottom: 24px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .challenge-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: var(--font-sans);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #7c73ff;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--accent);
+            background: rgba(108, 99, 255, 0.1);
+        }
+
+        .btn-braille {
+            background: rgba(0, 229, 255, 0.15);
+            color: var(--braille);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+        }
+
+        .btn-braille:hover {
+            background: rgba(0, 229, 255, 0.25);
+            box-shadow: 0 4px 20px var(--braille-glow);
+        }
+
+        /* Confidence Meter */
+        .confidence-container {
+            margin: 16px 0;
+        }
+
+        .confidence-bar-bg {
+            height: 8px;
+            background: var(--surface-2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .confidence-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease, background 0.5s;
+            background: var(--accent);
+        }
+
+        .confidence-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+
+        .confidence-label span:first-child { color: var(--text-dim); }
+        .confidence-label span:last-child { color: var(--text); font-family: var(--font-mono); }
+
+        /* Visit Counter */
+        .visit-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: var(--surface-2);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+            color: var(--text-dim);
+        }
+
+        .visit-counter strong { color: var(--braille); }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 1.8rem; }
+            .hero-braille { font-size: 2rem; }
+            .fingerprint-grid { grid-template-columns: 1fr; }
+            .challenge-actions { flex-direction: column; }
+        }
+
+        /* Animations */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fade-in 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+        .delay-5 { animation-delay: 0.5s; }
+
+        /* Scan line animation */
+        @keyframes scan-line {
+            0% { top: -2px; }
+            100% { top: 100%; }
+        }
+
+        .scanning-overlay {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scanning-overlay::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--braille), transparent);
+            animation: scan-line 2s linear infinite;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="braille-bg" id="braille-bg" aria-hidden="true"></div>
+
+    <div class="container">
+        <!-- Hero -->
+        <div class="hero animate-in">
+            <div class="hero-braille" id="hero-braille">⠃⠃⠊⠙</div>
+            <h1>Can We Identify You?</h1>
+            <p>No cookies. No login. No tracking pixels. Just your device's fingerprint, encoded in braille. Try to be anonymous.</p>
+        </div>
+
+        <!-- Status Banner -->
+        <div class="status-banner scanning animate-in delay-1" id="status-banner">
+            <div class="status-dot"></div>
+            <div class="status-text">
+                <strong>Scanning...</strong>
+                <span>Collecting device signals</span>
+            </div>
+        </div>
+
+        <!-- BBID Card -->
+        <div class="card animate-in delay-2" id="bbid-card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="icon">⠃</span>
+                    Your BBID (Braille-Binary Identity)
+                </div>
+                <span class="card-badge badge-braille">Live</span>
+            </div>
+            <div class="bbid-display scanning-overlay" id="bbid-display">
+                <div class="bbid-braille" id="bbid-braille">⠀⠀⠀⠀⠀⠀⠀⠀</div>
+                <div class="bbid-hash" id="bbid-hash">generating...</div>
+            </div>
+            <div class="confidence-container">
+                <div class="confidence-label">
+                    <span>Recognition Confidence</span>
+                    <span id="confidence-pct">0%</span>
+                </div>
+                <div class="confidence-bar-bg">
+                    <div class="confidence-bar" id="confidence-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 12px;">
+                <div class="visit-counter">
+                    Visit <strong id="visit-count">#1</strong> from this device
+                </div>
+            </div>
+        </div>
+
+        <!-- Device Fingerprint Card -->
+        <div class="card animate-in delay-3" id="fingerprint-card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="icon">🔍</span>
+                    Device Signals Detected
+                </div>
+                <span class="card-badge badge-live">Collecting</span>
+            </div>
+            <div class="fingerprint-grid" id="fingerprint-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Behavior Card -->
+        <div class="card animate-in delay-4" id="behavior-card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="icon">👁️</span>
+                    Behavioral Biometrics
+                </div>
+                <span class="card-badge badge-live">Tracking</span>
+            </div>
+            <ul class="behavior-list" id="behavior-list">
+                <li class="behavior-item">
+                    <span class="behavior-icon">🖱️</span>
+                    <span class="behavior-label">Mouse movements</span>
+                    <span class="behavior-value" id="beh-mouse">0</span>
+                </li>
+                <li class="behavior-item">
+                    <span class="behavior-icon">⌨️</span>
+                    <span class="behavior-label">Keystroke rhythm</span>
+                    <span class="behavior-value" id="beh-keys">waiting...</span>
+                </li>
+                <li class="behavior-item">
+                    <span class="behavior-icon">📜</span>
+                    <span class="behavior-label">Scroll velocity</span>
+                    <span class="behavior-value" id="beh-scroll">0 px/s</span>
+                </li>
+                <li class="behavior-item">
+                    <span class="behavior-icon">👆</span>
+                    <span class="behavior-label">Touch pressure</span>
+                    <span class="behavior-value" id="beh-touch">n/a</span>
+                </li>
+                <li class="behavior-item">
+                    <span class="behavior-icon">⏱️</span>
+                    <span class="behavior-label">Time on page</span>
+                    <span class="behavior-value" id="beh-time">0s</span>
+                </li>
+                <li class="behavior-item">
+                    <span class="behavior-icon">🔄</span>
+                    <span class="behavior-label">Interaction entropy</span>
+                    <span class="behavior-value" id="beh-entropy">0.00</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Graph Preview Card -->
+        <div class="card animate-in delay-5" id="graph-card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="icon">🔗</span>
+                    Your Identity Graph
+                </div>
+                <span class="card-badge badge-graph">Neo4j</span>
+            </div>
+            <div class="graph-preview" id="graph-preview">
+                <span class="node">(:Visitor)</span><span class="rel">-[:HAS_DEVICE]-></span><span class="node">(:Device)</span><br>
+                <span class="node">(:Device)</span><span class="rel">-[:HAS_FINGERPRINT]-></span><span class="node">(:Fingerprint)</span><br>
+                <span class="node">(:Visitor)</span><span class="rel">-[:SESSION {</span><span class="prop">ts, duration</span><span class="rel">}]-></span><span class="node">(:Visit)</span><br>
+                <span style="color: var(--text-dim);">// Loading your graph data...</span>
+            </div>
+        </div>
+
+        <!-- Challenge -->
+        <div class="challenge-section animate-in delay-5">
+            <h2>🧪 The Challenge</h2>
+            <p>Think you can fool BBID? Try incognito mode, a VPN, or a different browser. We'll tell you how similar you look to your other visits.</p>
+            <div class="challenge-actions">
+                <button class="btn btn-braille" id="btn-reset" title="Reset your BBID on this device">Reset My BBID</button>
+                <button class="btn btn-primary" id="btn-export" title="Download your identity graph as JSON">Export Graph JSON</button>
+                <button class="btn btn-outline" id="btn-haptic" title="Feel your fingerprint as braille vibrations">Feel My Fingerprint</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                Built by <a href="https://github.com/elevate-foundry" target="_blank">Elevate Foundry</a> ·
+                Powered by <strong>BrailleFST</strong> + <strong>BBES Codec</strong> ·
+                Graph: <strong>Neo4j</strong>
+            </p>
+            <p style="margin-top: 8px; font-size: 0.7rem;">
+                No personal data is stored server-side without consent. Device fingerprints are one-way hashed.
+                <br>This is a research demo for braille-encoded behavioral biometrics.
+            </p>
+        </div>
+    </div>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════════════
+    // BBES Codec (inlined from braille-core/bbes-codec.js)
+    // ═══════════════════════════════════════════════════════════════════════
+    class BBESCodec {
+        static brailleToBinary(braille) {
+            if (braille.length > 1) return braille.split('').map(b => BBESCodec.brailleToBinary(b)).join('');
+            const dotPattern = braille.codePointAt(0) - 0x2800;
+            return dotPattern.toString(2).padStart(6, '0');
+        }
+        static binaryToBraille(binary) {
+            if (binary.length > 6) {
+                const chars = [];
+                for (let i = 0; i < binary.length; i += 6) chars.push(BBESCodec.binaryToBraille(binary.substr(i, 6)));
+                return chars.join('');
+            }
+            return String.fromCodePoint(0x2800 + parseInt(binary, 2));
+        }
+        static textToBraille8(text) {
+            const bytes = new TextEncoder().encode(text);
+            let braille = '';
+            for (const b of bytes) braille += String.fromCodePoint(0x2800 + b);
+            return braille;
+        }
+        static braille8ToText(braille) {
+            const bytes = new Uint8Array(braille.length);
+            for (let i = 0; i < braille.length; i++) bytes[i] = braille.codePointAt(i) - 0x2800;
+            return new TextDecoder().decode(bytes);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Device Fingerprint Engine
+    // ═══════════════════════════════════════════════════════════════════════
+    class BBIDFingerprint {
+        constructor() {
+            this.components = {};
+            this.rawHash = null;
+            this.brailleHash = null;
+        }
+
+        async generate() {
+            this.collectBrowser();
+            this.collectScreen();
+            this.collectHardware();
+            await this.collectCanvas();
+            await this.collectWebGL();
+            this.collectTimingFingerprint();
+            this.rawHash = await this.hash(JSON.stringify(this.components));
+            this.brailleHash = this.hexToBraille(this.rawHash);
+            return this;
+        }
+
+        collectBrowser() {
+            const n = navigator;
+            this.components.userAgent = n.userAgent;
+            this.components.language = n.language;
+            this.components.languages = (n.languages || []).join(',');
+            this.components.platform = n.platform || n.userAgentData?.platform || 'unknown';
+            this.components.cookieEnabled = n.cookieEnabled;
+            this.components.doNotTrack = n.doNotTrack;
+            this.components.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            this.components.timezoneOffset = new Date().getTimezoneOffset();
+        }
+
+        collectScreen() {
+            const s = screen;
+            this.components.screenW = s.width;
+            this.components.screenH = s.height;
+            this.components.colorDepth = s.colorDepth;
+            this.components.pixelRatio = window.devicePixelRatio;
+            this.components.availW = s.availWidth;
+            this.components.availH = s.availHeight;
+        }
+
+        collectHardware() {
+            this.components.cores = navigator.hardwareConcurrency || 0;
+            this.components.memory = navigator.deviceMemory || 0;
+            this.components.maxTouch = navigator.maxTouchPoints || 0;
+            this.components.touchSupport = 'ontouchstart' in window;
+            if (navigator.connection) {
+                this.components.connType = navigator.connection.effectiveType;
+                this.components.connDownlink = navigator.connection.downlink;
+            }
+        }
+
+        async collectCanvas() {
+            try {
+                const c = document.createElement('canvas');
+                const ctx = c.getContext('2d');
+                c.width = 200; c.height = 50;
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#F60';
+                ctx.fillRect(8, 8, 32, 32);
+                ctx.fillStyle = '#069';
+                ctx.fillText('BBID⠃⠃⠊⠙', 12, 12);
+                ctx.strokeStyle = '#FF0000';
+                ctx.arc(50, 25, 10, 0, Math.PI * 2, true);
+                ctx.stroke();
+                this.components.canvas = await this.hash(c.toDataURL());
+            } catch (e) {
+                this.components.canvas = 'unsupported';
+            }
+        }
+
+        async collectWebGL() {
+            try {
+                const c = document.createElement('canvas');
+                const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+                if (!gl) { this.components.webgl = 'unsupported'; return; }
+                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                this.components.webglVendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+                this.components.webglRenderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+                this.components.webglVersion = gl.getParameter(gl.VERSION);
+                this.components.webgl = await this.hash([
+                    this.components.webglVendor,
+                    this.components.webglRenderer,
+                    this.components.webglVersion
+                ].join('::'));
+            } catch (e) {
+                this.components.webgl = 'unsupported';
+            }
+        }
+
+        collectTimingFingerprint() {
+            const t0 = performance.now();
+            let x = 0;
+            for (let i = 0; i < 10000; i++) x += Math.sin(i);
+            this.components.mathTiming = Math.round((performance.now() - t0) * 100) / 100;
+        }
+
+        async hash(str) {
+            if (window.crypto?.subtle) {
+                const data = new TextEncoder().encode(str);
+                const buf = await crypto.subtle.digest('SHA-256', data);
+                return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            let h = 0;
+            for (let i = 0; i < str.length; i++) {
+                h = ((h << 5) - h) + str.charCodeAt(i);
+                h = h & h;
+            }
+            return (h >>> 0).toString(16).padStart(8, '0');
+        }
+
+        hexToBraille(hex) {
+            const map = {
+                '0':'⠚','1':'⠁','2':'⠃','3':'⠉','4':'⠙','5':'⠑',
+                '6':'⠋','7':'⠛','8':'⠓','9':'⠊','a':'⠁⠃','b':'⠃⠃',
+                'c':'⠉⠃','d':'⠙⠃','e':'⠑⠃','f':'⠋⠃'
+            };
+            return hex.split('').map(c => map[c.toLowerCase()] || c).join('');
+        }
+
+        getDeviceType() {
+            const ua = navigator.userAgent.toLowerCase();
+            if (/mobile|android|iphone|ipod/i.test(ua)) return 'phone';
+            if (/ipad|tablet/i.test(ua)) return 'tablet';
+            return 'desktop';
+        }
+
+        getOS() {
+            const ua = navigator.userAgent;
+            if (/Mac OS X/i.test(ua)) return 'macOS';
+            if (/Windows/i.test(ua)) return 'Windows';
+            if (/Android/i.test(ua)) return 'Android';
+            if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+            if (/Linux/i.test(ua)) return 'Linux';
+            if (/CrOS/i.test(ua)) return 'ChromeOS';
+            return 'Unknown';
+        }
+
+        getBrowser() {
+            const ua = navigator.userAgent;
+            if (/Brave/i.test(ua)) return 'Brave';
+            if (/Edg/i.test(ua)) return 'Edge';
+            if (/OPR/i.test(ua)) return 'Opera';
+            if (/Chrome/i.test(ua) && !/Chromium/i.test(ua)) return 'Chrome';
+            if (/Firefox/i.test(ua)) return 'Firefox';
+            if (/Safari/i.test(ua)) return 'Safari';
+            return 'Unknown';
+        }
+
+        // Build a graph-ready payload (nodes + relationships)
+        toGraphPayload(sessionId, visitorId) {
+            return {
+                nodes: [
+                    {
+                        label: 'Visitor',
+                        id: visitorId,
+                        properties: { created: new Date().toISOString() }
+                    },
+                    {
+                        label: 'Device',
+                        id: `dev_${this.rawHash.substring(0, 16)}`,
+                        properties: {
+                            type: this.getDeviceType(),
+                            os: this.getOS(),
+                            browser: this.getBrowser(),
+                            cores: this.components.cores,
+                            memory: this.components.memory,
+                            maxTouch: this.components.maxTouch,
+                            screenW: this.components.screenW,
+                            screenH: this.components.screenH,
+                            pixelRatio: this.components.pixelRatio,
+                            colorDepth: this.components.colorDepth,
+                            timezone: this.components.timezone
+                        }
+                    },
+                    {
+                        label: 'Fingerprint',
+                        id: `fp_${this.rawHash}`,
+                        properties: {
+                            sha256: this.rawHash,
+                            bbes: this.brailleHash.substring(0, 64),
+                            canvas: this.components.canvas,
+                            webgl: this.components.webgl,
+                            mathTiming: this.components.mathTiming
+                        }
+                    },
+                    {
+                        label: 'Session',
+                        id: sessionId,
+                        properties: {
+                            started: new Date().toISOString(),
+                            userAgent: navigator.userAgent
+                        }
+                    }
+                ],
+                relationships: [
+                    { from: visitorId, to: `dev_${this.rawHash.substring(0, 16)}`, type: 'HAS_DEVICE' },
+                    { from: `dev_${this.rawHash.substring(0, 16)}`, to: `fp_${this.rawHash}`, type: 'HAS_FINGERPRINT' },
+                    { from: visitorId, to: sessionId, type: 'SESSION', properties: { timestamp: new Date().toISOString() } },
+                    { from: sessionId, to: `dev_${this.rawHash.substring(0, 16)}`, type: 'FROM_DEVICE' }
+                ]
+            };
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Behavior Tracker
+    // ═══════════════════════════════════════════════════════════════════════
+    class BehaviorTracker {
+        constructor() {
+            this.mouseMovements = 0;
+            this.mouseSpeeds = [];
+            this.keyTimings = [];
+            this.lastKeyTime = 0;
+            this.scrollEvents = [];
+            this.lastScrollTime = 0;
+            this.lastScrollY = 0;
+            this.touchPressures = [];
+            this.startTime = Date.now();
+            this.interactionLog = [];
+
+            this._bindEvents();
+        }
+
+        _bindEvents() {
+            document.addEventListener('mousemove', (e) => {
+                this.mouseMovements++;
+                if (this.mouseSpeeds.length < 500) {
+                    this.mouseSpeeds.push({
+                        x: e.movementX || 0,
+                        y: e.movementY || 0,
+                        t: Date.now()
+                    });
+                }
+                this.interactionLog.push('m');
+            });
+
+            document.addEventListener('keydown', () => {
+                const now = Date.now();
+                if (this.lastKeyTime > 0) {
+                    this.keyTimings.push(now - this.lastKeyTime);
+                }
+                this.lastKeyTime = now;
+                this.interactionLog.push('k');
+            });
+
+            document.addEventListener('scroll', () => {
+                const now = Date.now();
+                const y = window.scrollY;
+                if (this.lastScrollTime > 0) {
+                    const dt = (now - this.lastScrollTime) / 1000;
+                    if (dt > 0) {
+                        this.scrollEvents.push(Math.abs(y - this.lastScrollY) / dt);
+                    }
+                }
+                this.lastScrollTime = now;
+                this.lastScrollY = y;
+                this.interactionLog.push('s');
+            });
+
+            document.addEventListener('touchstart', (e) => {
+                if (e.touches[0] && e.touches[0].force) {
+                    this.touchPressures.push(e.touches[0].force);
+                }
+                this.interactionLog.push('t');
+            });
+        }
+
+        getTimeOnPage() {
+            return Math.round((Date.now() - this.startTime) / 1000);
+        }
+
+        getAvgKeyTiming() {
+            if (this.keyTimings.length === 0) return null;
+            return Math.round(this.keyTimings.reduce((a, b) => a + b, 0) / this.keyTimings.length);
+        }
+
+        getAvgScrollVelocity() {
+            if (this.scrollEvents.length === 0) return 0;
+            return Math.round(this.scrollEvents.reduce((a, b) => a + b, 0) / this.scrollEvents.length);
+        }
+
+        getAvgTouchPressure() {
+            if (this.touchPressures.length === 0) return null;
+            return (this.touchPressures.reduce((a, b) => a + b, 0) / this.touchPressures.length).toFixed(3);
+        }
+
+        // Shannon entropy of interaction pattern
+        getEntropy() {
+            if (this.interactionLog.length < 2) return 0;
+            const freq = {};
+            const log = this.interactionLog.slice(-200);
+            for (const c of log) freq[c] = (freq[c] || 0) + 1;
+            let entropy = 0;
+            for (const k in freq) {
+                const p = freq[k] / log.length;
+                entropy -= p * Math.log2(p);
+            }
+            return entropy.toFixed(2);
+        }
+
+        toGraphNode(sessionId) {
+            return {
+                label: 'Behavior',
+                id: `beh_${sessionId}`,
+                properties: {
+                    mouseMovements: this.mouseMovements,
+                    avgKeystrokeMs: this.getAvgKeyTiming(),
+                    avgScrollVelocity: this.getAvgScrollVelocity(),
+                    avgTouchPressure: this.getAvgTouchPressure(),
+                    entropy: parseFloat(this.getEntropy()),
+                    timeOnPage: this.getTimeOnPage(),
+                    interactionPattern: this.interactionLog.slice(-100).join('')
+                }
+            };
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BBID Identity Manager (localStorage-based, graph-ready)
+    // ═══════════════════════════════════════════════════════════════════════
+    class BBIDIdentityManager {
+        constructor() {
+            this.STORAGE_KEY = 'bbid_identity';
+            this.SESSION_KEY = 'bbid_sessions';
+        }
+
+        getVisitorId() {
+            let identity = this.getIdentity();
+            if (!identity) {
+                identity = {
+                    visitorId: 'visitor_' + crypto.randomUUID().replace(/-/g, '').substring(0, 16),
+                    created: new Date().toISOString(),
+                    visits: 0,
+                    fingerprints: []
+                };
+                this.saveIdentity(identity);
+            }
+            return identity.visitorId;
+        }
+
+        getIdentity() {
+            try {
+                const raw = localStorage.getItem(this.STORAGE_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        saveIdentity(identity) {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(identity));
+        }
+
+        recordVisit(fingerprintHash) {
+            const identity = this.getIdentity() || {};
+            identity.visits = (identity.visits || 0) + 1;
+            identity.lastVisit = new Date().toISOString();
+            if (!identity.fingerprints) identity.fingerprints = [];
+            if (!identity.fingerprints.includes(fingerprintHash)) {
+                identity.fingerprints.push(fingerprintHash);
+            }
+            this.saveIdentity(identity);
+            return identity.visits;
+        }
+
+        getVisitCount() {
+            const identity = this.getIdentity();
+            return identity ? (identity.visits || 0) : 0;
+        }
+
+        calculateConfidence(currentHash) {
+            const identity = this.getIdentity();
+            if (!identity || !identity.fingerprints || identity.fingerprints.length === 0) return 0;
+            if (identity.fingerprints.includes(currentHash)) {
+                // Exact match — base 85%, up to 98% with more visits
+                return Math.min(0.98, 0.85 + (identity.visits || 1) * 0.01);
+            }
+            // Unknown fingerprint but same visitorId in storage
+            return 0.3;
+        }
+
+        reset() {
+            localStorage.removeItem(this.STORAGE_KEY);
+            localStorage.removeItem(this.SESSION_KEY);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // App Controller
+    // ═══════════════════════════════════════════════════════════════════════
+    (async function main() {
+        const fp = new BBIDFingerprint();
+        const behavior = new BehaviorTracker();
+        const identity = new BBIDIdentityManager();
+
+        // Generate braille background
+        const bgEl = document.getElementById('braille-bg');
+        const brailleChars = '⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵⠀';
+        let bgText = '';
+        for (let i = 0; i < 3000; i++) bgText += brailleChars[Math.floor(Math.random() * brailleChars.length)];
+        bgEl.textContent = bgText;
+
+        // Generate fingerprint
+        await fp.generate();
+
+        // Identity
+        const visitorId = identity.getVisitorId();
+        const sessionId = 'sess_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+        const visitNum = identity.recordVisit(fp.rawHash);
+        const confidence = identity.calculateConfidence(fp.rawHash);
+
+        // Update status banner
+        const banner = document.getElementById('status-banner');
+        if (confidence > 0.8) {
+            banner.className = 'status-banner identified animate-in delay-1';
+            banner.querySelector('.status-text').innerHTML =
+                `<strong>Welcome back!</strong> <span>Visit #${visitNum} · Confidence: ${Math.round(confidence * 100)}%</span>`;
+        } else if (confidence > 0.2) {
+            banner.className = 'status-banner scanning animate-in delay-1';
+            banner.querySelector('.status-text').innerHTML =
+                `<strong>Partial match</strong> <span>Your device looks familiar but something changed...</span>`;
+        } else {
+            banner.className = 'status-banner new-visitor animate-in delay-1';
+            banner.querySelector('.status-text').innerHTML =
+                `<strong>New visitor detected</strong> <span>First time seeing this device. Encoding your BBID...</span>`;
+        }
+
+        // Update BBID display
+        document.getElementById('bbid-braille').textContent = fp.brailleHash.substring(0, 64);
+        document.getElementById('bbid-hash').textContent = `SHA-256: ${fp.rawHash}`;
+        document.getElementById('confidence-pct').textContent = Math.round(confidence * 100) + '%';
+        document.getElementById('confidence-bar').style.width = Math.round(confidence * 100) + '%';
+        document.getElementById('confidence-bar').style.background =
+            confidence > 0.8 ? 'var(--success)' : confidence > 0.4 ? 'var(--warning)' : 'var(--accent)';
+        document.getElementById('visit-count').textContent = `#${visitNum}`;
+
+        // Remove scanning overlay
+        document.getElementById('bbid-display').classList.remove('scanning-overlay');
+
+        // Populate fingerprint grid
+        const grid = document.getElementById('fingerprint-grid');
+        const fpItems = [
+            ['Device Type', fp.getDeviceType()],
+            ['OS', fp.getOS()],
+            ['Browser', fp.getBrowser()],
+            ['Screen', `${fp.components.screenW}×${fp.components.screenH}`],
+            ['Pixel Ratio', fp.components.pixelRatio + 'x'],
+            ['Color Depth', fp.components.colorDepth + '-bit'],
+            ['CPU Cores', fp.components.cores || '?'],
+            ['Memory', fp.components.memory ? fp.components.memory + 'GB' : '?'],
+            ['Touch Points', fp.components.maxTouch],
+            ['Timezone', fp.components.timezone],
+            ['Language', fp.components.language],
+            ['Canvas Hash', fp.components.canvas?.substring(0, 12) + '...'],
+            ['WebGL Hash', typeof fp.components.webgl === 'string' && fp.components.webgl !== 'unsupported' ? fp.components.webgl.substring(0, 12) + '...' : fp.components.webgl],
+            ['Math Timing', fp.components.mathTiming + 'ms'],
+        ];
+        grid.innerHTML = fpItems.map(([label, value]) =>
+            `<div class="fp-item"><div class="fp-label">${label}</div><div class="fp-value">${value}</div></div>`
+        ).join('');
+
+        // Update graph preview with actual data
+        const graphPayload = fp.toGraphPayload(sessionId, visitorId);
+        const graphEl = document.getElementById('graph-preview');
+        graphEl.innerHTML =
+            `<span class="node">(:Visitor {id: "${visitorId}"})</span>\n` +
+            `  <span class="rel">-[:HAS_DEVICE]-></span>\n` +
+            `  <span class="node">(:Device {type: "${fp.getDeviceType()}", os: "${fp.getOS()}", browser: "${fp.getBrowser()}"})</span>\n\n` +
+            `<span class="node">(:Device)</span>\n` +
+            `  <span class="rel">-[:HAS_FINGERPRINT]-></span>\n` +
+            `  <span class="node">(:Fingerprint {sha256: "${fp.rawHash.substring(0, 20)}..."})</span>\n\n` +
+            `<span class="node">(:Visitor)</span>\n` +
+            `  <span class="rel">-[:SESSION {</span><span class="prop">visit: ${visitNum}</span><span class="rel">}]-></span>\n` +
+            `  <span class="node">(:Session {id: "${sessionId}"})</span>\n\n` +
+            `<span style="color: var(--text-dim);">// ${graphPayload.nodes.length} nodes, ${graphPayload.relationships.length} relationships</span>\n` +
+            `<span style="color: var(--text-dim);">// BBES: ${fp.brailleHash.substring(0, 32)}...</span>`;
+
+        // Behavior tracker UI update loop
+        setInterval(() => {
+            document.getElementById('beh-mouse').textContent = behavior.mouseMovements.toLocaleString();
+            const avgKey = behavior.getAvgKeyTiming();
+            document.getElementById('beh-keys').textContent = avgKey !== null ? avgKey + 'ms avg' : 'waiting...';
+            document.getElementById('beh-scroll').textContent = behavior.getAvgScrollVelocity() + ' px/s';
+            const pressure = behavior.getAvgTouchPressure();
+            document.getElementById('beh-touch').textContent = pressure !== null ? pressure : 'n/a';
+            document.getElementById('beh-time').textContent = behavior.getTimeOnPage() + 's';
+            document.getElementById('beh-entropy').textContent = behavior.getEntropy();
+        }, 500);
+
+        // Button handlers
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            if (confirm('This will reset your BBID on this device. You will appear as a new visitor. Continue?')) {
+                identity.reset();
+                location.reload();
+            }
+        });
+
+        document.getElementById('btn-export').addEventListener('click', () => {
+            const fullPayload = {
+                ...graphPayload,
+                behavior: behavior.toGraphNode(sessionId),
+                meta: {
+                    exported: new Date().toISOString(),
+                    version: '1.0.0',
+                    bbidBraille: fp.brailleHash.substring(0, 64)
+                }
+            };
+            const blob = new Blob([JSON.stringify(fullPayload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `bbid_${fp.rawHash.substring(0, 8)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+
+        document.getElementById('btn-haptic').addEventListener('click', () => {
+            if (!navigator.vibrate) {
+                alert('Vibration API not supported on this device. Try on mobile!');
+                return;
+            }
+            // Convert first 8 braille chars of fingerprint to vibration pattern
+            const sample = fp.brailleHash.substring(0, 8);
+            const pattern = [];
+            for (const char of sample) {
+                const code = char.codePointAt(0);
+                if (code >= 0x2800 && code <= 0x28FF) {
+                    const dots = code - 0x2800;
+                    for (let d = 0; d < 6; d++) {
+                        pattern.push((dots & (1 << d)) ? 100 : 0);
+                        pattern.push(50);
+                    }
+                    pattern.push(200);
+                }
+            }
+            navigator.vibrate(pattern);
+        });
+
+    })();
+    </script>
+</body>
+</html>
