@@ -33,6 +33,24 @@ Sal is a scripted AI persona embedded in the page. She speaks after every finger
 - `setUserName()` normalizes to Title Case, saves locally, and `POST`s to `/name` on the worker
 - `speak()` is `async` — checks graph before falling back to the name prompt
 
+## Why This Matters
+
+Every AI chatbot — ChatGPT, Grok, Claude, Gemini — is already fingerprinting users implicitly. Conversation patterns, typing cadence, vocabulary, topic preferences, and session metadata all feed into embeddings and user profiles that silently identify returning visitors. The difference is that none of them tell you.
+
+BBID makes the invisible visible:
+
+| Signal | LLM Chatbots (implicit) | BBID + Sal (explicit) |
+|--------|------------------------|-----------------------|
+| Device fingerprint | Hidden in session metadata | SHA-256 hash displayed in braille |
+| Behavioral patterns | Absorbed into user embeddings | Mouse, keystroke, scroll tracked live |
+| Cross-session identity | Tied to account/cookie silently | Visitor node in Neo4j, confidence % shown |
+| Name persistence | Account profile | Graph-synced across devices, Sal asks directly |
+| "I know it's you" | Never admitted | Sal says it to your face |
+
+The provocative part is the last row. Any LLM *could* say "I recognize your writing style from yesterday" — it just doesn't. Sal does. BBID formalizes identity detection as an **auditable, transparent feature** instead of a hidden side effect. Every signal is shown on screen, the graph is visible, the confidence score is explained, and Sal tells you exactly what she's reading.
+
+This is what ethical identity detection looks like: not hiding what you know, but showing it.
+
 ## The Challenge
 
 Visit the page. Then try to fool it:
