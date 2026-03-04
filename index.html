@@ -1665,10 +1665,11 @@
     // Sal — Identity AI Persona
     // ═══════════════════════════════════════════════════════════════════════
     class SalAI {
-        constructor(workerUrl, visitorId) {
+        constructor(workerUrl, visitorId, fpHash) {
             this.NAME_KEY = 'sal_user_name';
             this.workerUrl = workerUrl;
             this.visitorId = visitorId;
+            this.fpHash = fpHash;
             this.container = document.getElementById('sal-container');
             this.msgEl = document.getElementById('sal-message');
             this.inputWrap = document.getElementById('sal-input-wrap');
@@ -1702,7 +1703,8 @@
         // Try to pull name from Neo4j graph (cross-device sync)
         async _fetchGraphName() {
             try {
-                const res = await fetch(this.workerUrl + '/name');
+                const params = this.fpHash ? '?fp=' + encodeURIComponent(this.fpHash) : '';
+                const res = await fetch(this.workerUrl + '/name' + params);
                 const data = await res.json();
                 if (data.name) return data.name;
             } catch (e) {
@@ -1711,17 +1713,36 @@
             return '';
         }
 
+        // Graph-backed visit count (survives localStorage wipe)
+        async _fetchGraphVisits() {
+            try {
+                if (!this.fpHash) return null;
+                const res = await fetch(this.workerUrl + '/visits?fp=' + encodeURIComponent(this.fpHash));
+                const data = await res.json();
+                return data;
+            } catch (e) {
+                console.warn('Sal: graph visit lookup failed:', e.message);
+            }
+            return null;
+        }
+
         // Speak after fingerprint is ready
         async speak(visitNum, fp, confidence) {
             let name = this.getUserName();
 
-            // Cross-device: if no local name, check if any Visitor in the graph has one
+            // Cross-device: if no local name, check the graph
             if (!name) {
                 const graphName = await this._fetchGraphName();
                 if (graphName) {
                     this.setUserName(graphName);
                     name = graphName;
                 }
+            }
+
+            // Graph-backed visit count: prefer graph over localStorage
+            const graphData = await this._fetchGraphVisits();
+            if (graphData && graphData.visits > visitNum) {
+                visitNum = graphData.visits;
             }
 
             if (!name) {
@@ -1939,8 +1960,8 @@
         // Remove scanning overlay
         document.getElementById('bbid-display').classList.remove('scanning-overlay');
 
-        // Sal speaks
-        const sal = new SalAI(WORKER_URL, visitorId);
+        // Sal speaks (pass fingerprint node ID for scoped graph queries)
+        const sal = new SalAI(WORKER_URL, visitorId, 'fp_' + fp.rawHash);
         setTimeout(() => sal.speak(visitNum, fp, confidence), 800);
 
         // Populate fingerprint grid
@@ -2016,9 +2037,19 @@
         }, 500);
 
         // Button handlers
-        document.getElementById('btn-reset').addEventListener('click', () => {
-            if (confirm('This will reset your BBID on this device. You will appear as a new visitor. Continue?')) {
+        document.getElementById('btn-reset').addEventListener('click', async () => {
+            if (confirm('This will erase your BBID from this device AND the server. You will appear as a new visitor. Continue?')) {
+                // Right to erasure: delete from Neo4j first
+                try {
+                    await fetch(WORKER_URL + '/visitor', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ visitorId })
+                    });
+                } catch {}
+                // Clear local state
                 identity.reset();
+                localStorage.removeItem('sal_user_name');
                 location.reload();
             }
         });
