@@ -175,3 +175,18 @@ Braille is the superset. Each language or domain standard is a proper subset. Th
 ## License
 
 MIT — Elevate Foundry
+
+<!-- ELEVATE:BEGIN (auto-generated section; edits here are overwritten) -->
+## About
+
+| | |
+| --- | --- |
+| **Description** | Braille-encoded behavioral biometrics - can we identify you without login? |
+| **Language** | HTML |
+| **Commits** | 25 |
+| **Created** | 2026-03-04 |
+| **Last push** | 2026-03-04 |
+| **Site** | https://elevate-foundry.github.io/bbid-challenge/ |
+
+Part of [**elevate-foundry**](https://github.com/elevate-foundry) · [repository](https://github.com/elevate-foundry/bbid-challenge)
+<!-- ELEVATE:END -->
